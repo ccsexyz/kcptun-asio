@@ -16,9 +16,9 @@
 #include <fstream>
 #include <functional>
 #include <iostream>
+#include <iterator>
 #include <list>
 #include <memory>
-#include <iterator>
 #include <random>
 #include <stddef.h>
 #include <stdint.h>
@@ -35,9 +35,7 @@
 #include <vector>
 
 enum { nonce_size = 16, crc_size = 4 };
-enum {
-    mtu_limit = 1500
-};
+enum { mtu_limit = 1500 };
 
 #if __cplusplus < 201402L
 // support make_unique in c++ 11
@@ -120,7 +118,8 @@ static inline uint32_t crc32c_ieee(uint32_t crc, const unsigned char *buf,
     return ~crc;
 }
 
-static inline uint32_t crc32c_cast(uint32_t crc, const unsigned char *buf, std::size_t len) {
+static inline uint32_t crc32c_cast(uint32_t crc, const unsigned char *buf,
+                                   std::size_t len) {
     int k;
 
     crc = ~crc;
@@ -130,7 +129,7 @@ static inline uint32_t crc32c_cast(uint32_t crc, const unsigned char *buf, std::
             crc = crc & 1 ? (crc >> 1) ^ CastagnoliPOLY : crc >> 1;
     }
     crc = ~crc;
-    return (uint32_t)(crc>>15|crc<<17) + 0xa282ead8;
+    return (uint32_t)(crc >> 15 | crc << 17) + 0xa282ead8;
 }
 
 #define TRACE

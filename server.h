@@ -5,8 +5,8 @@
 #ifndef KCPTUN_SERVER_H
 #define KCPTUN_SERVER_H
 
-#include "sess.h"
 #include "config.h"
+#include "sess.h"
 
 using AcceptHandler = std::function<void(std::shared_ptr<Session>)>;
 
@@ -14,10 +14,13 @@ class Server final : public std::enable_shared_from_this<Server> {
 public:
     Server(asio::io_service &io_service, asio::ip::udp::endpoint ep);
     void run(AcceptHandler handler);
+
 private:
     void do_receive();
+
 private:
     AcceptHandler acceptHandler_;
+
 private:
     char buf_[65536];
     asio::io_service &service_;

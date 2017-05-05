@@ -5,8 +5,8 @@
 #ifndef KCPTUN_LOCAL_H
 #define KCPTUN_LOCAL_H
 
-#include "sess.h"
 #include "config.h"
+#include "sess.h"
 
 class Local final : public std::enable_shared_from_this<Local> {
 public:
@@ -14,8 +14,10 @@ public:
     void run();
     void async_read_some(char *buffer, std::size_t len, Handler handler);
     void async_write(char *buffer, std::size_t len, Handler handler);
+
 private:
     void do_receive();
+
 private:
     char buf_[65536];
     asio::io_service &service_;

@@ -18,5 +18,5 @@
 * 实现 FEC   
 * ~~实现 snappy 数据流压缩~~  
 * ~~实现更多的加密方式~~  
-* 实现 smux keepalive  
+* ~~实现 smux keepalive~~  
 * 性能优化  

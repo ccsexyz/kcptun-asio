@@ -11,25 +11,28 @@ void Server::run(AcceptHandler handler) {
 
 void Server::do_receive() {
     auto self = shared_from_this();
-    usocket_->async_receive_from(asio::buffer(buf_, sizeof(buf_)), ep_, [this, self](std::error_code ec, std::size_t len){
-        if(ec) {
-            return;
-        }
-        auto it = sessions_.find(ep_);
-        std::shared_ptr<Session> sess;
-        if (it != sessions_.end()) {
-            sess = it->second;
-        } else {
-            uint32_t convid;
-            decode32u((byte *)(buf_), &convid);
-            sess = std::make_shared<Session>(service_, usocket_, ep_, convid);
-            sessions_.emplace(ep_, sess);
-            sess->run();
-            if(acceptHandler_) {
-                acceptHandler_(sess);
+    usocket_->async_receive_from(
+        asio::buffer(buf_, sizeof(buf_)), ep_,
+        [this, self](std::error_code ec, std::size_t len) {
+            if (ec) {
+                return;
             }
-        }
-        sess->input(buf_, len);
-        do_receive();
-    });
+            auto it = sessions_.find(ep_);
+            std::shared_ptr<Session> sess;
+            if (it != sessions_.end()) {
+                sess = it->second;
+            } else {
+                uint32_t convid;
+                decode32u((byte *)(buf_), &convid);
+                sess =
+                    std::make_shared<Session>(service_, usocket_, ep_, convid);
+                sessions_.emplace(ep_, sess);
+                sess->run();
+                if (acceptHandler_) {
+                    acceptHandler_(sess);
+                }
+            }
+            sess->input(buf_, len);
+            do_receive();
+        });
 }

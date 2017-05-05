@@ -30,8 +30,7 @@ private:
 class smux final : public std::enable_shared_from_this<smux> {
 public:
     smux(asio::io_service &io_service, OutputHandler handler)
-        : service_(io_service), out_handler_(handler) {
-    }
+        : service_(io_service), out_handler_(handler) {}
 
     void run();
     void destroy();
@@ -45,6 +44,7 @@ public:
 
 private:
     void do_keepalive_checker();
+    void do_keepalive_sender();
     void do_receive_frame();
     void do_stat_checker();
     void handle_frame(frame f);
@@ -62,7 +62,8 @@ private:
     OutputHandler out_handler_;
     std::function<void(std::shared_ptr<smux_sess>)> acceptHandler_;
     std::unordered_map<uint32_t, std::weak_ptr<smux_sess>> sessions_;
-    std::shared_ptr<asio::deadline_timer> keepalive_timer_;
+    std::shared_ptr<asio::deadline_timer> keepalive_check_timer_;
+    std::shared_ptr<asio::deadline_timer> keepalive_sender_timer_;
     bool frame_flag = false;
 };
 

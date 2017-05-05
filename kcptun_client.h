@@ -1,10 +1,10 @@
 #ifndef KCPTUN_KCPTUN_CLIENT_H
 #define KCPTUN_KCPTUN_CLIENT_H
 
-#include "local.h"
-#include "smux.h"
 #include "config.h"
 #include "encrypt.h"
+#include "local.h"
+#include "smux.h"
 
 class snappy_stream_writer;
 class snappy_stream_reader;
@@ -40,8 +40,10 @@ private:
     void do_accept();
     void try_write_task();
     void output_handler(char *buf, std::size_t len, Handler handler);
-    void snappy_stream_reader_output_handler(char *buf, std::size_t len, Handler handler);
-    void snappy_stream_writer_output_handler(char *buf, std::size_t len, Handler handler);
+    void snappy_stream_reader_output_handler(char *buf, std::size_t len,
+                                             Handler handler);
+    void snappy_stream_writer_output_handler(char *buf, std::size_t len,
+                                             Handler handler);
 
 private:
     char buf_[65536];

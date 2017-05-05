@@ -1,36 +1,64 @@
 #include "smux.h"
 #include "config.h"
 
-void smux::run() { do_receive_frame(); }
+void smux::run() {
+    do_receive_frame();
+    do_keepalive_checker();
+    do_keepalive_sender();
+}
 
 void smux::do_keepalive_checker() {
-    return;
     std::weak_ptr<smux> weaksmux = shared_from_this();
-    if(!keepalive_timer_) {
-        keepalive_timer_ = std::make_shared<asio::deadline_timer>(service_, boost::posix_time::seconds(global_config.keepalive));
+    if (!keepalive_check_timer_) {
+        keepalive_check_timer_ = std::make_shared<asio::deadline_timer>(
+            service_, boost::posix_time::seconds(global_config.keepalive * 3));
     } else {
-        keepalive_timer_->expires_at(keepalive_timer_->expires_at()+boost::posix_time::seconds(global_config.keepalive));
+        keepalive_check_timer_->expires_at(
+            keepalive_check_timer_->expires_at() +
+            boost::posix_time::seconds(global_config.keepalive * 3));
     }
-    keepalive_timer_->async_wait([this, weaksmux](const std::error_code &){
-        auto s = weaksmux.lock();
-        if(!s) {
-            return;
-        }
-        if(data_ready_) {
-//            data_ready_ = false;
-            s->async_write_frame(frame{0, cmdNop, 0, 0}, nullptr);
-            do_keepalive_checker();
-        } else {
-            s->destroy();
-        }
-    });
+    keepalive_check_timer_->async_wait(
+        [this, weaksmux](const std::error_code &) {
+            auto s = weaksmux.lock();
+            if (!s || destroy_) {
+                return;
+            }
+            if (data_ready_) {
+                data_ready_ = false;
+                do_keepalive_checker();
+            } else {
+                s->destroy();
+            }
+        });
+}
+
+void smux::do_keepalive_sender() {
+    std::weak_ptr<smux> weaksmux = shared_from_this();
+    if (!keepalive_sender_timer_) {
+        keepalive_sender_timer_ = std::make_shared<asio::deadline_timer>(
+            service_, boost::posix_time::seconds(global_config.keepalive));
+    } else {
+        keepalive_sender_timer_->expires_at(
+            keepalive_sender_timer_->expires_at() +
+            boost::posix_time::seconds(global_config.keepalive));
+    }
+    keepalive_sender_timer_->async_wait(
+        [this, weaksmux](const std::error_code &) {
+            auto s = weaksmux.lock();
+            if (!s || destroy_) {
+                return;
+            }
+            async_write_frame(frame{VERSION, cmdNop, 0, 0}, nullptr);
+            do_keepalive_sender();
+        });
 }
 
 void smux::do_stat_checker() {
     auto self = shared_from_this();
-    auto stat_timer = std::make_shared<asio::deadline_timer>(service_, boost::posix_time::seconds(1));
-    stat_timer->async_wait([this, self, stat_timer](const std::error_code &){
-        if(destroy_) {
+    auto stat_timer = std::make_shared<asio::deadline_timer>(
+        service_, boost::posix_time::seconds(1));
+    stat_timer->async_wait([this, self, stat_timer](const std::error_code &) {
+        if (destroy_) {
             return;
         }
         do_stat_checker();
@@ -127,25 +155,25 @@ void smux::async_read_full(char *buf, std::size_t len, Handler handler) {
 void smux::do_receive_frame() {
     auto self = shared_from_this();
     frame_flag = true;
-    async_read_full(
-        frame_header_, headerSize,
-        [this, self](std::error_code ec, std::size_t) {
-            if (ec) {
-                TRACE
-                return;
-            }
-            frame f = frame::unmarshal(frame_header_);
-            async_read_full(
-                frame_data_, static_cast<std::size_t>(f.length),
-                [f, this, self](std::error_code ec, std::size_t) mutable {
-                    if (ec) {
-                        return;
-                    }
-                    f.data = frame_data_;
-                    frame_flag = false;
-                    handle_frame(f);
-                });
-        });
+    async_read_full(frame_header_, headerSize,
+                    [this, self](std::error_code ec, std::size_t) {
+                        if (ec) {
+                            TRACE
+                            return;
+                        }
+                        frame f = frame::unmarshal(frame_header_);
+                        async_read_full(frame_data_,
+                                        static_cast<std::size_t>(f.length),
+                                        [f, this, self](std::error_code ec,
+                                                        std::size_t) mutable {
+                                            if (ec) {
+                                                return;
+                                            }
+                                            f.data = frame_data_;
+                                            frame_flag = false;
+                                            handle_frame(f);
+                                        });
+                    });
 }
 
 void smux::handle_frame(frame f) {
@@ -224,8 +252,7 @@ void smux::destroy() {
 
 smux_sess::smux_sess(asio::io_service &io_service, uint32_t id, uint8_t version,
                      std::weak_ptr<smux> sm)
-    : service_(io_service), id_(id), version_(version), sm_(sm) {
-}
+    : service_(io_service), id_(id), version_(version), sm_(sm) {}
 
 void smux_sess::destroy() {
     destroy_ = true;
@@ -307,8 +334,7 @@ void smux_sess::async_read_some(char *buf, std::size_t len, Handler handler) {
         auto input_handler = input_task_.handler;
         input_task_.reset();
         if (handler) {
-            handler(std::error_code(0, std::generic_category()),
-                    input_len);
+            handler(std::error_code(0, std::generic_category()), input_len);
         }
         if (input_handler) {
             input_handler(std::error_code(0, std::generic_category()), 0);

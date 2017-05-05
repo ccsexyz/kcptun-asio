@@ -2,8 +2,10 @@
 
 Local::Local(asio::io_service &io_service, asio::ip::udp::endpoint ep)
     : service_(io_service),
-      usocket_(std::make_shared<asio::ip::udp::socket>(io_service, asio::ip::udp::endpoint(asio::ip::udp::v4(), 0))),
-      sess_(std::make_shared<Session>(io_service, usocket_, ep, uint32_t(rand()))) {}
+      usocket_(std::make_shared<asio::ip::udp::socket>(
+          io_service, asio::ip::udp::endpoint(asio::ip::udp::v4(), 0))),
+      sess_(std::make_shared<Session>(io_service, usocket_, ep,
+                                      uint32_t(rand()))) {}
 
 void Local::run() {
     sess_->run();

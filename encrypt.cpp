@@ -3,22 +3,17 @@
 #include <cryptopp/blowfish.h>
 #include <cryptopp/cast.h>
 #include <cryptopp/chacha.h>
+#include <cryptopp/crc.h>
 #include <cryptopp/cryptlib.h>
 #include <cryptopp/des.h>
-#include <cryptopp/crc.h>
 #include <cryptopp/filters.h>
-#include <cryptopp/twofish.h>
+#include <cryptopp/hex.h>
 #include <cryptopp/modes.h>
 #include <cryptopp/osrng.h>
-#include <cryptopp/salsa.h>
-#include <cryptopp/aes.h>
-#include <cryptopp/blowfish.h>
-#include <cryptopp/cast.h>
-#include <cryptopp/des.h>
-#include <cryptopp/hex.h>
-#include <cryptopp/salsa.h>
 #include <cryptopp/pwdbased.h>
+#include <cryptopp/salsa.h>
 #include <cryptopp/tea.h>
+#include <cryptopp/twofish.h>
 
 using CryptoPP::PKCS5_PBKDF2_HMAC;
 using CryptoPP::SHA1;
@@ -42,14 +37,16 @@ using CryptoPP::DES_EDE3;
 using CryptoPP::XTEA;
 using CryptoPP::CAST128;
 
-const byte iv[] = {167, 115, 79, 156, 18, 172, 27, 1, 164, 21, 242, 193, 252, 120, 230, 107};
+const byte iv[] = {167, 115, 79,  156, 18,  172, 27,  1,
+                   164, 21,  242, 193, 252, 120, 230, 107};
 
 std::string pbkdf2(std::string password) {
     byte salt[] = "kcp-go";
     size_t slen = strlen((const char *)salt);
     byte derived[32];
     PKCS5_PBKDF2_HMAC<CryptoPP::SHA1> pbk;
-    pbk.DeriveKey(derived, sizeof(derived), 0, (const byte *)(password.c_str()), password.length(), salt, slen, 4096);
+    pbk.DeriveKey(derived, sizeof(derived), 0, (const byte *)(password.c_str()),
+                  password.length(), salt, slen, 4096);
     return std::string((const char *)derived, 32);
 }
 
@@ -60,17 +57,23 @@ public:
         assert(keyLen <= pass.length());
         assert(ivLen <= sizeof(iv));
     }
-    void encrypt(char *dst, std::size_t dlen, char *src, std::size_t slen) override {
+    void encrypt(char *dst, std::size_t dlen, char *src,
+                 std::size_t slen) override {
         typename CFB_Mode<T>::Encryption enc;
         enc.SetKeyWithIV((const byte *)(pass_.c_str()), keyLen, iv, ivLen);
-        ArraySource((byte *)dst, dlen, true, new StreamTransformationFilter(enc, new ArraySink((byte *)src, slen)));
+        ArraySource((byte *)dst, dlen, true,
+                    new StreamTransformationFilter(
+                        enc, new ArraySink((byte *)src, slen)));
         return;
     }
 
-    void decrypt(char *dst, std::size_t dlen, char *src, std::size_t slen) override {
+    void decrypt(char *dst, std::size_t dlen, char *src,
+                 std::size_t slen) override {
         typename CFB_Mode<T>::Decryption dec;
         dec.SetKeyWithIV((const byte *)(pass_.c_str()), keyLen, iv, ivLen);
-        ArraySource((byte *)dst, dlen, true, new StreamTransformationFilter(dec, new ArraySink((byte *)src, slen)));
+        ArraySource((byte *)dst, dlen, true,
+                    new StreamTransformationFilter(
+                        dec, new ArraySink((byte *)src, slen)));
         return;
     }
 
@@ -89,27 +92,35 @@ public:
     DecEncrypter(const std::string &pass) : pass_(pass) {
         assert(keyLen <= pass.length());
     }
-    void encrypt(char *dst, std::size_t dlen, char *src, std::size_t slen) override {
+    void encrypt(char *dst, std::size_t dlen, char *src,
+                 std::size_t slen) override {
         Salsa20::Encryption enc;
-        enc.SetKeyWithIV((const byte *)(pass_.c_str()), keyLen, (const byte *)src, ivLen);
+        enc.SetKeyWithIV((const byte *)(pass_.c_str()), keyLen,
+                         (const byte *)src, ivLen);
         memmove(dst, src, ivLen);
         dst += ivLen;
         src += ivLen;
         dlen -= ivLen;
         slen -= ivLen;
-        ArraySource((byte *)dst, dlen, true, new StreamTransformationFilter(enc, new ArraySink((byte *)src, slen)));
+        ArraySource((byte *)dst, dlen, true,
+                    new StreamTransformationFilter(
+                        enc, new ArraySink((byte *)src, slen)));
         return;
     }
 
-    void decrypt(char *dst, std::size_t dlen, char *src, std::size_t slen) override {
+    void decrypt(char *dst, std::size_t dlen, char *src,
+                 std::size_t slen) override {
         Salsa20::Decryption dec;
-        dec.SetKeyWithIV((const byte *)(pass_.c_str()), keyLen, (const byte *)src, ivLen);
+        dec.SetKeyWithIV((const byte *)(pass_.c_str()), keyLen,
+                         (const byte *)src, ivLen);
         memmove(dst, src, ivLen);
         dst += ivLen;
         src += ivLen;
         dlen -= ivLen;
         slen -= ivLen;
-        ArraySource((byte *)dst, dlen, true, new StreamTransformationFilter(dec, new ArraySink((byte *)src, slen)));
+        ArraySource((byte *)dst, dlen, true,
+                    new StreamTransformationFilter(
+                        dec, new ArraySink((byte *)src, slen)));
         return;
     }
 
@@ -119,10 +130,12 @@ private:
 
 class NoneDecEncrypter final : public BaseDecEncrypter {
 public:
-    void encrypt(char *dst, std::size_t dlen, char *src, std::size_t slen) override {
+    void encrypt(char *dst, std::size_t dlen, char *src,
+                 std::size_t slen) override {
         memmove(dst, src, slen);
     }
-    void decrypt(char *dst, std::size_t dlen, char *src, std::size_t slen) override {
+    void decrypt(char *dst, std::size_t dlen, char *src,
+                 std::size_t slen) override {
         memmove(dst, src, slen);
     }
 };
@@ -134,11 +147,11 @@ public:
         byte salt[] = "sH3CIVoF#rWLtJo6";
         size_t slen = strlen((const char *)salt);
         PKCS5_PBKDF2_HMAC<CryptoPP::SHA1> pbk;
-        pbk.DeriveKey((byte *)xortbl, mtu_limit, 0, (const byte *)(pwd.c_str()), pwd.length(), salt, slen, 32);
+        pbk.DeriveKey((byte *)xortbl, mtu_limit, 0, (const byte *)(pwd.c_str()),
+                      pwd.length(), salt, slen, 32);
     }
-    virtual ~XorBase() {
-        delete[] xortbl;
-    }
+    virtual ~XorBase() { delete[] xortbl; }
+
 public:
     char *xortbl = nullptr;
 };
@@ -146,27 +159,29 @@ public:
 class SimpleXorDecEncrypter final : public BaseDecEncrypter, public XorBase {
 public:
     SimpleXorDecEncrypter(const std::string &pwd) : XorBase(pwd) {}
-    void encrypt(char *dst, std::size_t dlen, char *src, std::size_t slen) override {
-        for(auto i = 0; i < slen; i++) {
+    void encrypt(char *dst, std::size_t dlen, char *src,
+                 std::size_t slen) override {
+        for (auto i = 0; i < slen; i++) {
             dst[i] = src[i] ^ xortbl[i];
         }
     }
-    void decrypt(char *dst, std::size_t dlen, char *src, std::size_t slen) override {
-        for(auto i = 0; i < slen; i++) {
+    void decrypt(char *dst, std::size_t dlen, char *src,
+                 std::size_t slen) override {
+        for (auto i = 0; i < slen; i++) {
             dst[i] = src[i] ^ xortbl[i];
         }
     }
 };
 
 std::unique_ptr<BaseDecEncrypter> getDecEncrypter(const std::string &method,
-                                            const std::string &pwd) {
+                                                  const std::string &pwd) {
     if (method == "aes-128") {
         return std::move(std::make_unique<DecEncrypter<AES, 16, 16>>(pwd));
     } else if (method == "aes-192") {
         return std::move(std::make_unique<DecEncrypter<AES, 24, 16>>(pwd));
-    } else if(method == "none") {
+    } else if (method == "none") {
         return std::move(std::make_unique<NoneDecEncrypter>());
-    } else if(method == "xor") {
+    } else if (method == "xor") {
         return std::move(std::make_unique<SimpleXorDecEncrypter>(pwd));
     } else if (method == "3des") {
         return std::move(std::make_unique<DecEncrypter<DES_EDE3, 24, 8>>(pwd));

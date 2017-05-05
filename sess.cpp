@@ -21,7 +21,7 @@ void Session::run() {
     ikcp_wndsize(kcp_, 1024, 1024);
     dec_or_enc_ = getDecEncrypter(global_config.crypt, global_config.key);
     run_timer();
-//    run_peeksize_checker();
+    //    run_peeksize_checker();
 }
 
 void Session::run_timer() {
@@ -46,8 +46,9 @@ void Session::run_timer() {
 
 void Session::run_peeksize_checker() {
     auto self = shared_from_this();
-    auto timer = std::make_shared<asio::deadline_timer>(service_, boost::posix_time::seconds(1));
-    timer->async_wait([this, self, timer](const std::error_code &){
+    auto timer = std::make_shared<asio::deadline_timer>(
+        service_, boost::posix_time::seconds(1));
+    timer->async_wait([this, self, timer](const std::error_code &) {
         run_peeksize_checker();
     });
 }
@@ -117,9 +118,10 @@ int Session::output_wrapper(const char *buffer, int len, struct IKCPCB *kcp,
 ssize_t Session::output(const char *buffer, std::size_t len) {
     char *buf = static_cast<char *>(malloc(len + nonce_size + crc_size));
     memcpy(buf + nonce_size + crc_size, buffer, len);
-    auto crc = crc32c_ieee(0, (byte *) buffer, len);
+    auto crc = crc32c_ieee(0, (byte *)buffer, len);
     encode32u((byte *)(buf + nonce_size), crc);
-    dec_or_enc_->encrypt(buf, len + nonce_size + crc_size, buf, len + nonce_size + crc_size);
+    dec_or_enc_->encrypt(buf, len + nonce_size + crc_size, buf,
+                         len + nonce_size + crc_size);
     usocket_->async_send_to(
         asio::buffer(buf, len + nonce_size + crc_size), ep_,
         [buf](std::error_code ec, std::size_t len) { free(buf); });

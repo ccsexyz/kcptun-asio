@@ -5,26 +5,32 @@
 #ifndef KCPTUN_SESS_H
 #define KCPTUN_SESS_H
 
-#include "utils.h"
-#include "ikcp.h"
 #include "config.h"
 #include "encrypt.h"
+#include "ikcp.h"
+#include "utils.h"
 
 class Session : public std::enable_shared_from_this<Session> {
 public:
-    Session(asio::io_service &service, std::shared_ptr<asio::ip::udp::socket> usocket, asio::ip::udp::endpoint ep, uint32_t convid);
+    Session(asio::io_service &service,
+            std::shared_ptr<asio::ip::udp::socket> usocket,
+            asio::ip::udp::endpoint ep, uint32_t convid);
     void run();
     ~Session();
+
 private:
     void run_timer();
-    static int output_wrapper(const char *buffer, int len, struct IKCPCB *kcp, void *user);
+    static int output_wrapper(const char *buffer, int len, struct IKCPCB *kcp,
+                              void *user);
     ssize_t output(const char *buffer, std::size_t len);
     void update();
     void run_peeksize_checker();
+
 public:
     void input(char *buffer, std::size_t len);
     void async_read_some(char *buffer, std::size_t len, Handler handler);
     void async_write_some(char *buffer, std::size_t len, Handler handler);
+
 private:
     asio::io_service &service_;
     std::shared_ptr<asio::ip::udp::socket> usocket_;
@@ -32,6 +38,7 @@ private:
     std::shared_ptr<asio::deadline_timer> timer_;
     Task rtask_;
     Task wtask_;
+
 private:
     uint32_t convid_ = 0;
     ikcpcb *kcp_ = nullptr;
