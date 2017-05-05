@@ -34,7 +34,10 @@
 #include <utility>
 #include <vector>
 
-enum { nonceSize = 16, crcSize = 4 };
+enum { nonce_size = 16, crc_size = 4 };
+enum {
+    mtu_limit = 1500
+};
 
 #if __cplusplus < 201402L
 // support make_unique in c++ 11

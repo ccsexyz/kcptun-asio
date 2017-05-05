@@ -8,6 +8,7 @@
 #include "utils.h"
 #include "ikcp.h"
 #include "config.h"
+#include "encrypt.h"
 
 class Session : public std::enable_shared_from_this<Session> {
 public:
@@ -38,6 +39,7 @@ private:
     char wbuf_[2048];
     char stream_buf_[65535];
     std::size_t streambufsiz_ = 0;
+    std::unique_ptr<BaseDecEncrypter> dec_or_enc_;
 };
 
 #endif

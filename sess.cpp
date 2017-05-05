@@ -19,6 +19,7 @@ void Session::run() {
     kcp_->stream = 1;
     ikcp_nodelay(kcp_, 1, 20, 2, 1);
     ikcp_wndsize(kcp_, 1024, 1024);
+    dec_or_enc_ = getDecEncrypter(global_config.crypt, global_config.key);
     run_timer();
 //    run_peeksize_checker();
 }
@@ -52,10 +53,9 @@ void Session::run_peeksize_checker() {
 }
 
 void Session::input(char *buffer, std::size_t len) {
-    std::unique_ptr<BaseDecrypter> dec = getDecrypter(global_config.crypt, global_config.key);
-    dec->decrypt(buffer, len, buffer, len);
-    auto n = ikcp_input(kcp_, buffer + nonceSize + crcSize,
-                        int(len - (nonceSize + crcSize)));
+    dec_or_enc_->decrypt(buffer, len, buffer, len);
+    auto n = ikcp_input(kcp_, buffer + nonce_size + crc_size,
+                        int(len - (nonce_size + crc_size)));
     TRACE
     if (rtask_.check()) {
         update();
@@ -115,14 +115,13 @@ int Session::output_wrapper(const char *buffer, int len, struct IKCPCB *kcp,
 }
 
 ssize_t Session::output(const char *buffer, std::size_t len) {
-    char *buf = static_cast<char *>(malloc(len + nonceSize + crcSize));
-    memcpy(buf + nonceSize + crcSize, buffer, len);
+    char *buf = static_cast<char *>(malloc(len + nonce_size + crc_size));
+    memcpy(buf + nonce_size + crc_size, buffer, len);
     auto crc = crc32c_ieee(0, (byte *) buffer, len);
-    encode32u((byte *)(buf + nonceSize), crc);
-    std::unique_ptr<BaseEncrypter> enc = getEncrypter(global_config.crypt, global_config.key);
-    enc->encrypt(buf, len + nonceSize + crcSize, buf, len + nonceSize + crcSize);
+    encode32u((byte *)(buf + nonce_size), crc);
+    dec_or_enc_->encrypt(buf, len + nonce_size + crc_size, buf, len + nonce_size + crc_size);
     usocket_->async_send_to(
-        asio::buffer(buf, len + nonceSize + crcSize), ep_,
+        asio::buffer(buf, len + nonce_size + crc_size), ep_,
         [buf](std::error_code ec, std::size_t len) { free(buf); });
 }
 

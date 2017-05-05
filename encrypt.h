@@ -6,22 +6,14 @@
 
 std::string pbkdf2(std::string password);
 
-class BaseEncrypter {
+class BaseDecEncrypter {
 public:
-    virtual ~BaseEncrypter() = default;
+    virtual ~BaseDecEncrypter() = default;
     virtual void encrypt(char *dst, std::size_t dlen, char *src, std::size_t slen) = 0;
-};
-
-class BaseDecrypter {
-public:
-    virtual ~BaseDecrypter() = default;
     virtual void decrypt(char *dst, std::size_t dlen, char *src, std::size_t slen) = 0;
 };
 
-std::unique_ptr<BaseEncrypter> getEncrypter(const std::string &method,
-                                            const std::string &pwd);
-
-std::unique_ptr<BaseDecrypter> getDecrypter(const std::string &method,
+std::unique_ptr<BaseDecEncrypter> getDecEncrypter(const std::string &method,
                                             const std::string &pwd);
 
 void put_random_bytes(char *buffer, std::size_t length);
