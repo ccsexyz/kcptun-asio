@@ -6,6 +6,9 @@
 #include "config.h"
 #include "encrypt.h"
 
+class snappy_stream_writer;
+class snappy_stream_reader;
+
 class kcptun_client_session final
     : public std::enable_shared_from_this<kcptun_client_session> {
 public:
@@ -37,6 +40,8 @@ private:
     void do_accept();
     void try_write_task();
     void output_handler(char *buf, std::size_t len, Handler handler);
+    void snappy_stream_reader_output_handler(char *buf, std::size_t len, Handler handler);
+    void snappy_stream_writer_output_handler(char *buf, std::size_t len, Handler handler);
 
 private:
     char buf_[65536];
@@ -48,6 +53,8 @@ private:
     std::shared_ptr<smux> smux_;
     std::deque<Task> tasks_;
     bool writing_ = false;
+    std::shared_ptr<snappy_stream_writer> snappy_writer_;
+    std::shared_ptr<snappy_stream_reader> snappy_reader_;
 };
 
 #endif

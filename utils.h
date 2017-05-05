@@ -18,6 +18,7 @@
 #include <iostream>
 #include <list>
 #include <memory>
+#include <iterator>
 #include <random>
 #include <stddef.h>
 #include <stdint.h>
@@ -100,14 +101,11 @@ struct Task {
     bool check() { return buf != nullptr && len != 0; }
 };
 
-/* CRC-32C (iSCSI) polynomial in reversed bit order. */
 #define IEEEPOLY 0xedb88320
+#define CastagnoliPOLY 0x82f63b78
 
-/* CRC-32 (Ethernet, ZIP, etc.) polynomial in reversed bit order. */
-/* #define POLY 0xedb88320 */
-
-static inline uint32_t crc32c(uint32_t crc, const unsigned char *buf,
-                              size_t len) {
+static inline uint32_t crc32c_ieee(uint32_t crc, const unsigned char *buf,
+                                   size_t len) {
     int k;
 
     crc = ~crc;
@@ -117,6 +115,19 @@ static inline uint32_t crc32c(uint32_t crc, const unsigned char *buf,
             crc = crc & 1 ? (crc >> 1) ^ IEEEPOLY : crc >> 1;
     }
     return ~crc;
+}
+
+static inline uint32_t crc32c_cast(uint32_t crc, const unsigned char *buf, std::size_t len) {
+    int k;
+
+    crc = ~crc;
+    while (len--) {
+        crc ^= *buf++;
+        for (k = 0; k < 8; k++)
+            crc = crc & 1 ? (crc >> 1) ^ CastagnoliPOLY : crc >> 1;
+    }
+    crc = ~crc;
+    return (uint32_t)(crc>>15|crc<<17) + 0xa282ead8;
 }
 
 #define TRACE

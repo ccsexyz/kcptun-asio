@@ -2,7 +2,8 @@ cmake_minimum_required(VERSION 3.6)
 project(kcptun)
 
 set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
 
 set(SOURCE_FILES
         ikcp.c
@@ -24,8 +25,11 @@ set(SOURCE_FILES
         smux.cpp
         encrypt.h
         encrypt.cpp
-        config.h)
+        config.h
+        snappy_stream.cpp
+        snappy_stream.h)
 
 add_executable(kcptun ${SOURCE_FILES})
 target_link_libraries(kcptun pthread)
 target_link_libraries(kcptun cryptopp)
+target_link_libraries(kcptun snappy)

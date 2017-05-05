@@ -117,7 +117,7 @@ int Session::output_wrapper(const char *buffer, int len, struct IKCPCB *kcp,
 ssize_t Session::output(const char *buffer, std::size_t len) {
     char *buf = static_cast<char *>(malloc(len + nonceSize + crcSize));
     memcpy(buf + nonceSize + crcSize, buffer, len);
-    auto crc = crc32c(0, (byte *)buffer, len);
+    auto crc = crc32c_ieee(0, (byte *) buffer, len);
     encode32u((byte *)(buf + nonceSize), crc);
     std::unique_ptr<BaseEncrypter> enc = getEncrypter(global_config.crypt, global_config.key);
     enc->encrypt(buf, len + nonceSize + crcSize, buf, len + nonceSize + crcSize);
