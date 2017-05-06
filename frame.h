@@ -36,6 +36,6 @@ struct frame final {
         encode16u((byte *)(b + 2), length);
         encode32u((byte *)(b + 4), id);
     }
-} __attribute__((packed));
+};
 
 #endif

@@ -3,33 +3,37 @@
 
 #include "utils.h"
 
-struct config {
-public:
-    std::string local_addr;
-    std::string remote_addr;
-    std::string key;
-    std::string crypt;
-    std::string mode;
-    int conn;
-    int auto_expire;
-    int scavengettl;
-    int mtu;
-    int sndwnd;
-    int rcvwnd;
-    int datashard;
-    int parityshard;
-    int dscp;
-    bool nocomp;
-    bool acknodelay;
-    int nodelay;
-    int interval;
-    int resend;
-    int nc;
-    int sockbuf;
-    int keepalive;
-    std::string log;
-};
+extern std::string LocalAddr;
+extern std::string RemoteAddr;
+extern std::string TargetAddr;
+extern std::string Key;
+extern std::string Crypt;
+extern std::string Mode;
+extern int Conn;
+extern int AutoExpire;
+extern int Mtu;
+extern int ScavengeTTL;
+extern int SndWnd;
+extern int RcvWnd;
+extern int DataShard;
+extern int ParityShard;
+extern int Dscp;
+extern bool NoComp;
+extern bool AckNodelay;
+extern int NoDelay;
+extern int Resend;
+extern int Nc;
+extern int SockBuf;
+extern int KeepAlive;
+extern std::string LogFile;
+extern int Interval;
 
-extern config global_config;
+void parse_command_lines(int argc, char **argv);
+
+std::string get_host(const std::string &addr);
+
+std::string get_port(const std::string &addr);
+
+void process_configs();
 
 #endif

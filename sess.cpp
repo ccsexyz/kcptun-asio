@@ -18,14 +18,15 @@ void Session::run() {
     kcp_ = ikcp_create(convid_, static_cast<void *>(this));
     kcp_->output = Session::output_wrapper;
     kcp_->stream = 1;
-    ikcp_nodelay(kcp_, 1, 20, 2, 1);
-    ikcp_wndsize(kcp_, 1024, 1024);
-    dec_or_enc_ = getDecEncrypter(global_config.crypt, global_config.key);
-    if (global_config.datashard > 0 && global_config.parityshard > 0) {
+    ikcp_nodelay(kcp_, NoDelay, Interval, Resend, Nc);
+    ikcp_wndsize(kcp_, SndWnd, RcvWnd);
+    ikcp_setmtu(kcp_, Mtu);
+    dec_or_enc_ = getDecEncrypter(Crypt, pbkdf2(Key));
+    if (DataShard > 0 && ParityShard > 0) {
         fec_ = std::make_unique<FEC>(
-            FEC::New(3 * (global_config.datashard + global_config.parityshard),
-                     global_config.datashard, global_config.parityshard));
-        shards_.resize(global_config.datashard + global_config.parityshard,
+            FEC::New(3 * (DataShard + ParityShard),
+                     DataShard, ParityShard));
+        shards_.resize(DataShard + ParityShard,
                        nullptr);
     }
     run_timer();
@@ -162,10 +163,10 @@ ssize_t Session::output(const char *buffer, std::size_t len) {
     shards_[pkt_idx_] = std::make_shared<std::vector<byte>>(
         &(buf_[fecHeaderSize]), &(buf_[fecHeaderSize + slen]));
     pkt_idx_++;
-    if (pkt_idx_ == global_config.datashard) {
+    if (pkt_idx_ == DataShard) {
         fec_->Encode(shards_);
-        for (size_t i = global_config.datashard;
-             i < global_config.datashard + global_config.parityshard; i++) {
+        for (size_t i = DataShard;
+             i < DataShard + ParityShard; i++) {
             memcpy(buf_ + fecHeaderSize, shards_[i]->data(),
                    shards_[i]->size());
             fec_->MarkFEC(buf_);

@@ -11,11 +11,11 @@ void smux::do_keepalive_checker() {
     std::weak_ptr<smux> weaksmux = shared_from_this();
     if (!keepalive_check_timer_) {
         keepalive_check_timer_ = std::make_shared<asio::deadline_timer>(
-            service_, boost::posix_time::seconds(global_config.keepalive * 3));
+            service_, boost::posix_time::seconds(KeepAlive * 3));
     } else {
         keepalive_check_timer_->expires_at(
             keepalive_check_timer_->expires_at() +
-            boost::posix_time::seconds(global_config.keepalive * 3));
+            boost::posix_time::seconds(KeepAlive * 3));
     }
     keepalive_check_timer_->async_wait(
         [this, weaksmux](const std::error_code &) {
@@ -36,11 +36,11 @@ void smux::do_keepalive_sender() {
     std::weak_ptr<smux> weaksmux = shared_from_this();
     if (!keepalive_sender_timer_) {
         keepalive_sender_timer_ = std::make_shared<asio::deadline_timer>(
-            service_, boost::posix_time::seconds(global_config.keepalive));
+            service_, boost::posix_time::seconds(KeepAlive));
     } else {
         keepalive_sender_timer_->expires_at(
             keepalive_sender_timer_->expires_at() +
-            boost::posix_time::seconds(global_config.keepalive));
+            boost::posix_time::seconds(KeepAlive));
     }
     keepalive_sender_timer_->async_wait(
         [this, weaksmux](const std::error_code &) {

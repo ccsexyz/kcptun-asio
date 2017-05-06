@@ -9,7 +9,7 @@ kcptun_client::kcptun_client(asio::io_service &io_service,
       local_(std::make_shared<Local>(io_service, target_endpoint)) {}
 
 void kcptun_client::run() {
-    if (!global_config.nocomp) {
+    if (!NoComp) {
         snappy_reader_ = std::make_shared<snappy_stream_reader>(
             service_, [this](char *buf, std::size_t len, Handler handler) {
                 snappy_stream_reader_output_handler(buf, len, handler);

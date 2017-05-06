@@ -26,6 +26,7 @@ set(SOURCE_FILES
         encrypt.h
         encrypt.cpp
         config.h
+        config.cpp
         snappy_stream.cpp
         snappy_stream.h
         fec.cpp

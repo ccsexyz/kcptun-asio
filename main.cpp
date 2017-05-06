@@ -4,28 +4,40 @@
 #include "local.h"
 #include "server.h"
 
-config global_config;
+void print_configs() {
+    std::cout << "listening on: " << LocalAddr << "\n";
+    std::cout << "encryption: " << Crypt << "\n";
+    std::cout << "nodelay parameters: " << NoDelay << " " << Interval << " " << Resend << " " << Nc << "\n";
+    std::cout << "remote address: " << RemoteAddr << "\n";
+    std::cout << "sndwnd: " << SndWnd << " rcvwnd: " << RcvWnd << "\n";
+    std::cout << "compression: " << (NoComp ? "false " : "true ") << "\n";
+    std::cout << "mtu: " << Mtu << "\n";
+    std::cout << "datashard: " << DataShard << " parityshard: " << ParityShard << "\n"; 
+    std::cout << "acknodelay: " << (AckNodelay ? "true ": "false ") << "\n";
+    std::cout << "dscp: " << Dscp << "\n";
+    std::cout << "sockbuf: " << SockBuf << "\n";
+    std::cout << "keepalive: " << KeepAlive << "\n";
+    std::cout << "conn: " << Conn << "\n";
+    std::cout << "autoexpire: " << AutoExpire << "\n";
+    std::cout << "scavengettl: " << ScavengeTTL << std::endl;
+}
 
-int main(void) {
-    global_config.crypt = "xtea";
-    global_config.key = "password";
-    global_config.nocomp = false;
-    global_config.datashard = 10;
-    global_config.parityshard = 3;
-    global_config.key = pbkdf2(global_config.key);
-    global_config.keepalive = 10;
+int main(int argc, char **argv) {
+    parse_command_lines(argc, argv);
+    process_configs();
+    print_configs();
     asio::io_service io_service;
-    asio::ip::udp::resolver uresolver(io_service);
-
-    //    auto tgep = *resolver.resolve({asio::ip::tcp::v4(), "www.baidu.com",
-    //    "80"});
-    // std::make_shared<kcptun_server>(io_service,
-    // asio::ip::udp::endpoint(asio::ip::udp::v4(), 6666), tgep)->run();
-    std::make_shared<kcptun_client>(
-        io_service, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), 7778),
-        asio::ip::udp::endpoint(
-            *uresolver.resolve({asio::ip::udp::v4(), "0.0.0.0", "6666"})))
-        ->run();
+    asio::ip::udp::endpoint remote_endpoint;
+    asio::ip::tcp::endpoint local_endpoint;
+    {
+        asio::ip::udp::resolver resolver(io_service);
+        remote_endpoint = asio::ip::udp::endpoint(*resolver.resolve({asio::ip::udp::v4(), get_host(RemoteAddr), get_port(RemoteAddr)}));
+    }
+    {
+        asio::ip::tcp::resolver resolver(io_service);
+        local_endpoint = asio::ip::tcp::endpoint(*resolver.resolve({asio::ip::tcp::v4(), get_host(LocalAddr), get_port(LocalAddr)}));
+    }
+    std::make_shared<kcptun_client>(io_service, local_endpoint, remote_endpoint)->run();
     io_service.run();
     return 0;
 }
