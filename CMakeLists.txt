@@ -27,7 +27,20 @@ set(SOURCE_FILES
         encrypt.cpp
         config.h
         snappy_stream.cpp
-        snappy_stream.h)
+        snappy_stream.h
+        fec.cpp
+	fec.h
+	galois.cpp
+	galois.h
+	galois_noasm.cpp
+	galois_noasm.h
+	galois_table.c
+	inversion_tree.cpp
+	inversion_tree.h
+	matrix.cpp
+	matrix.h
+	reedsolomon.cpp
+	reedsolomon.h)
 
 add_executable(kcptun ${SOURCE_FILES})
 target_link_libraries(kcptun pthread)
