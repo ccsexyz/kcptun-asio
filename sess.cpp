@@ -1,5 +1,6 @@
 #include "sess.h"
 #include "encrypt.h"
+#include "fec.h"
 
 Session::Session(asio::io_service &service,
                  std::shared_ptr<asio::ip::udp::socket> usocket,
@@ -20,6 +21,13 @@ void Session::run() {
     ikcp_nodelay(kcp_, 1, 20, 2, 1);
     ikcp_wndsize(kcp_, 1024, 1024);
     dec_or_enc_ = getDecEncrypter(global_config.crypt, global_config.key);
+    if (global_config.datashard > 0 && global_config.parityshard > 0) {
+        fec_ = std::make_unique<FEC>(
+            FEC::New(3 * (global_config.datashard + global_config.parityshard),
+                     global_config.datashard, global_config.parityshard));
+        shards_.resize(global_config.datashard + global_config.parityshard,
+                       nullptr);
+    }
     run_timer();
     //    run_peeksize_checker();
 }
@@ -55,9 +63,37 @@ void Session::run_peeksize_checker() {
 
 void Session::input(char *buffer, std::size_t len) {
     dec_or_enc_->decrypt(buffer, len, buffer, len);
-    auto n = ikcp_input(kcp_, buffer + nonce_size + crc_size,
-                        int(len - (nonce_size + crc_size)));
-    TRACE
+    if (len <= nonce_size + crc_size) {
+        return;
+    }
+    buffer += nonce_size + crc_size;
+    len -= nonce_size + crc_size;
+    if (!fec_) {
+        auto n = ikcp_input(kcp_, buffer, int(len));
+        TRACE
+        if (rtask_.check()) {
+            update();
+        }
+        return;
+    }
+    auto pkt = fec_->Decode((byte *)buffer, len);
+    if (pkt.flag == typeData) {
+        auto ptr = pkt.data->data();
+        ikcp_input(kcp_, (char *)(ptr + 2), pkt.data->size() - 2);
+    }
+    if (pkt.flag == typeData || pkt.flag == typeFEC) {
+        auto recovered = fec_->Input(pkt);
+        for (auto &r : recovered) {
+            if (r->size() > 2) {
+                auto ptr = r->data();
+                uint16_t sz;
+                decode16u(ptr, &sz);
+                if (sz >= 2 && sz <= r->size()) {
+                    ikcp_input(kcp_, (char *)(ptr + 2), sz - 2);
+                }
+            }
+        }
+    }
     if (rtask_.check()) {
         update();
     }
@@ -116,15 +152,29 @@ int Session::output_wrapper(const char *buffer, int len, struct IKCPCB *kcp,
 }
 
 ssize_t Session::output(const char *buffer, std::size_t len) {
-    char *buf = static_cast<char *>(malloc(len + nonce_size + crc_size));
-    memcpy(buf + nonce_size + crc_size, buffer, len);
-    auto crc = crc32c_ieee(0, (byte *)buffer, len);
-    encode32u((byte *)(buf + nonce_size), crc);
-    dec_or_enc_->encrypt(buf, len + nonce_size + crc_size, buf,
-                         len + nonce_size + crc_size);
-    usocket_->async_send_to(
-        asio::buffer(buf, len + nonce_size + crc_size), ep_,
-        [buf](std::error_code ec, std::size_t len) { free(buf); });
+    if (!fec_) {
+        return output_no_fec(buffer, len);
+    }
+    memcpy(buf_ + fecHeaderSizePlus2, buffer, len);
+    fec_->MarkData((byte *)buf_, len + fecHeaderSizePlus2);
+    output_no_fec((const char *)buf_, len + fecHeaderSizePlus2);
+    auto slen = len + 2;
+    shards_[pkt_idx_] = std::make_shared<std::vector<byte>>(
+        &(buf_[fecHeaderSize]), &(buf_[fecHeaderSize + slen]));
+    pkt_idx_++;
+    if (pkt_idx_ == global_config.datashard) {
+        fec_->Encode(shards_);
+        for (size_t i = global_config.datashard;
+             i < global_config.datashard + global_config.parityshard; i++) {
+            memcpy(buf_ + fecHeaderSize, shards_[i]->data(),
+                   shards_[i]->size());
+            fec_->MarkFEC(buf_);
+            output_no_fec((const char *)buf_,
+                          shards_[i]->size() + fecHeaderSize);
+        }
+        pkt_idx_ = 0;
+    }
+    return len;
 }
 
 void Session::update() {
@@ -143,4 +193,17 @@ void Session::update() {
         rtask_handler(std::error_code(0, std::generic_category()),
                       static_cast<std::size_t>(n));
     }
+}
+
+ssize_t Session::output_no_fec(const char *buffer, std::size_t len) {
+    char *buf = static_cast<char *>(malloc(len + nonce_size + crc_size));
+    memcpy(buf + nonce_size + crc_size, buffer, len);
+    auto crc = crc32c_ieee(0, (byte *)buffer, len);
+    encode32u((byte *)(buf + nonce_size), crc);
+    dec_or_enc_->encrypt(buf, len + nonce_size + crc_size, buf,
+                         len + nonce_size + crc_size);
+    usocket_->async_send_to(
+        asio::buffer(buf, len + nonce_size + crc_size), ep_,
+        [buf](std::error_code ec, std::size_t len) { free(buf); });
+    return len;
 }

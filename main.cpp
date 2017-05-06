@@ -7,9 +7,11 @@
 config global_config;
 
 int main(void) {
-    global_config.crypt = "none";
-    global_config.key = "hello";
+    global_config.crypt = "xtea";
+    global_config.key = "password";
     global_config.nocomp = false;
+    global_config.datashard = 10;
+    global_config.parityshard = 3;
     global_config.key = pbkdf2(global_config.key);
     global_config.keepalive = 10;
     asio::io_service io_service;
