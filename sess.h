@@ -13,11 +13,11 @@
 
 class FEC;
 
-class Session : public std::enable_shared_from_this<Session> {
+class Session : public std::enable_shared_from_this<Session>,
+                public AsyncReadWriter,
+                public AsyncInOutputer {
 public:
-    Session(asio::io_service &service,
-            std::shared_ptr<asio::ip::udp::socket> usocket,
-            asio::ip::udp::endpoint ep, uint32_t convid);
+    Session(asio::io_service &service, uint32_t convid, OutputHandler o);
     void run();
     ~Session();
 
@@ -25,20 +25,17 @@ private:
     void run_timer();
     static int output_wrapper(const char *buffer, int len, struct IKCPCB *kcp,
                               void *user);
-    ssize_t output(const char *buffer, std::size_t len);
-    ssize_t output_no_fec(const char *buffer, std::size_t len);
     void update();
     void run_peeksize_checker();
 
 public:
     void input(char *buffer, std::size_t len);
-    void async_read_some(char *buffer, std::size_t len, Handler handler);
-    void async_write_some(char *buffer, std::size_t len, Handler handler);
+    void async_input(char *buffer, std::size_t len, Handler handler) override;
+    void async_read_some(char *buffer, std::size_t len, Handler handler) override;
+    void async_write(char *buffer, std::size_t len, Handler handler) override;
 
 private:
     asio::io_service &service_;
-    std::shared_ptr<asio::ip::udp::socket> usocket_;
-    asio::ip::udp::endpoint ep_;
     std::shared_ptr<asio::deadline_timer> timer_;
     Task rtask_;
     Task wtask_;
@@ -46,15 +43,8 @@ private:
 private:
     uint32_t convid_ = 0;
     ikcpcb *kcp_ = nullptr;
-    byte buf_[2048];
-    char rbuf_[2048];
-    char wbuf_[2048];
     char stream_buf_[65535];
     std::size_t streambufsiz_ = 0;
-    std::unique_ptr<BaseDecEncrypter> dec_or_enc_;
-    std::unique_ptr<FEC> fec_;
-    std::vector<row_type> shards_;
-    uint32_t pkt_idx_ = 0;
 };
 
 inline uint32_t currentMs() {

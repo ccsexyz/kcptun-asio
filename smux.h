@@ -6,15 +6,15 @@
 
 class smux;
 
-class smux_sess final : public std::enable_shared_from_this<smux_sess> {
+class smux_sess final : public std::enable_shared_from_this<smux_sess>, public AsyncReadWriter {
 public:
     smux_sess(asio::io_service &io_service, uint32_t id, uint8_t version,
               std::weak_ptr<smux> sm);
     ~smux_sess();
     void destroy();
     void input(char *buf, std::size_t len, Handler handler);
-    void async_read_some(char *buf, std::size_t len, Handler handler);
-    void async_write(char *buf, std::size_t len, Handler handler);
+    void async_read_some(char *buf, std::size_t len, Handler handler) override;
+    void async_write(char *buf, std::size_t len, Handler handler) override;
 
 private:
     uint8_t version_;
@@ -27,20 +27,21 @@ private:
     std::weak_ptr<smux> sm_;
 };
 
-class smux final : public std::enable_shared_from_this<smux> {
+class smux final : public std::enable_shared_from_this<smux>, public AsyncReadWriter, public AsyncInOutputer {
 public:
-    smux(asio::io_service &io_service, OutputHandler handler)
-        : service_(io_service), out_handler_(handler) {}
+    smux(asio::io_service &io_service, OutputHandler handler = nullptr)
+        : AsyncInOutputer(handler), service_(io_service) {}
 
     void run();
     void destroy();
-    void input(char *buf, std::size_t len, Handler handler);
-    void
-    async_accept(std::function<void(std::shared_ptr<smux_sess>)> acceptHandler);
-    void async_write(char *buf, std::size_t len, Handler handler);
+    void async_input(char *buf, std::size_t len, Handler handler) override;
+    // void
+    // async_accept(std::function<void(std::shared_ptr<smux_sess>)> acceptHandler);
+    void async_write(char *buf, std::size_t len, Handler handler) override;
     void async_connect(
         std::function<void(std::shared_ptr<smux_sess>)> connectHandler);
     void async_write_frame(frame f, Handler handler);
+    void async_read_some(char *buf, std::size_t len, Handler handler) override {}
 
 private:
     void do_keepalive_checker();
@@ -49,8 +50,11 @@ private:
     void do_stat_checker();
     void handle_frame(frame f);
     void async_read_full(char *buf, std::size_t len, Handler handler);
+    void try_output(char *buf, std::size_t len, Handler handler);
+    void try_write_task();
 
 private:
+    bool writing_ = false;
     bool data_ready_ = true;
     bool destroy_ = false;
     char frame_header_[headerSize];
@@ -59,7 +63,7 @@ private:
     asio::io_service &service_;
     Task read_task_;
     Task input_task_;
-    OutputHandler out_handler_;
+    std::deque<Task> tasks_;
     std::function<void(std::shared_ptr<smux_sess>)> acceptHandler_;
     std::unordered_map<uint32_t, std::weak_ptr<smux_sess>> sessions_;
     std::shared_ptr<asio::deadline_timer> keepalive_check_timer_;

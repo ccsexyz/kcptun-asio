@@ -2,10 +2,8 @@
 #include "encrypt.h"
 #include "fec.h"
 
-Session::Session(asio::io_service &service,
-                 std::shared_ptr<asio::ip::udp::socket> usocket,
-                 asio::ip::udp::endpoint ep, uint32_t convid)
-    : service_(service), usocket_(usocket), ep_(ep), convid_(convid) {}
+Session::Session(asio::io_service &service, uint32_t convid, OutputHandler o)
+    : AsyncInOutputer(o), service_(service), convid_(convid) {}
 
 Session::~Session() {
     TRACE
@@ -21,16 +19,8 @@ void Session::run() {
     ikcp_nodelay(kcp_, NoDelay, Interval, Resend, Nc);
     ikcp_wndsize(kcp_, SndWnd, RcvWnd);
     ikcp_setmtu(kcp_, Mtu);
-    dec_or_enc_ = getDecEncrypter(Crypt, pbkdf2(Key));
-    if (DataShard > 0 && ParityShard > 0) {
-        fec_ = std::make_unique<FEC>(
-            FEC::New(3 * (DataShard + ParityShard),
-                     DataShard, ParityShard));
-        shards_.resize(DataShard + ParityShard,
-                       nullptr);
-    }
     run_timer();
-    //    run_peeksize_checker();
+    // run_peeksize_checker();
 }
 
 void Session::run_timer() {
@@ -58,46 +48,25 @@ void Session::run_peeksize_checker() {
     auto timer = std::make_shared<asio::deadline_timer>(
         service_, boost::posix_time::seconds(1));
     timer->async_wait([this, self, timer](const std::error_code &) {
+        std::cout << ikcp_peeksize(kcp_) << std::endl;
         run_peeksize_checker();
     });
 }
 
+void Session::async_input(char *buffer, std::size_t len, Handler handler) {
+    input(buffer, len);
+    if (handler) {
+        handler(errc(0), len);
+    }
+}
+
 void Session::input(char *buffer, std::size_t len) {
-    dec_or_enc_->decrypt(buffer, len, buffer, len);
-    if (len <= nonce_size + crc_size) {
-        return;
-    }
-    buffer += nonce_size + crc_size;
-    len -= nonce_size + crc_size;
-    if (!fec_) {
-        auto n = ikcp_input(kcp_, buffer, int(len));
-        TRACE
-        if (rtask_.check()) {
-            update();
-        }
-        return;
-    }
-    auto pkt = fec_->Decode((byte *)buffer, len);
-    if (pkt.flag == typeData) {
-        auto ptr = pkt.data->data();
-        ikcp_input(kcp_, (char *)(ptr + 2), pkt.data->size() - 2);
-    }
-    if (pkt.flag == typeData || pkt.flag == typeFEC) {
-        auto recovered = fec_->Input(pkt);
-        for (auto &r : recovered) {
-            if (r->size() > 2) {
-                auto ptr = r->data();
-                uint16_t sz;
-                decode16u(ptr, &sz);
-                if (sz >= 2 && sz <= r->size()) {
-                    ikcp_input(kcp_, (char *)(ptr + 2), sz - 2);
-                }
-            }
-        }
-    }
+    auto n = ikcp_input(kcp_, buffer, int(len));
+    TRACE
     if (rtask_.check()) {
         update();
     }
+    return;
 }
 
 void Session::async_read_some(char *buffer, std::size_t len, Handler handler) {
@@ -136,7 +105,7 @@ void Session::async_read_some(char *buffer, std::size_t len, Handler handler) {
     return;
 }
 
-void Session::async_write_some(char *buffer, std::size_t len, Handler handler) {
+void Session::async_write(char *buffer, std::size_t len, Handler handler) {
     auto n = ikcp_send(kcp_, buffer, int(len));
     if (handler) {
         handler(std::error_code(0, std::generic_category()),
@@ -148,34 +117,8 @@ int Session::output_wrapper(const char *buffer, int len, struct IKCPCB *kcp,
                             void *user) {
     assert(user != nullptr);
     Session *sess = static_cast<Session *>(user);
-    sess->output(buffer, static_cast<std::size_t>(len));
+    sess->output((char *)(buffer), static_cast<std::size_t>(len), nullptr);
     return 0;
-}
-
-ssize_t Session::output(const char *buffer, std::size_t len) {
-    if (!fec_) {
-        return output_no_fec(buffer, len);
-    }
-    memcpy(buf_ + fecHeaderSizePlus2, buffer, len);
-    fec_->MarkData((byte *)buf_, len + fecHeaderSizePlus2);
-    output_no_fec((const char *)buf_, len + fecHeaderSizePlus2);
-    auto slen = len + 2;
-    shards_[pkt_idx_] = std::make_shared<std::vector<byte>>(
-        &(buf_[fecHeaderSize]), &(buf_[fecHeaderSize + slen]));
-    pkt_idx_++;
-    if (pkt_idx_ == DataShard) {
-        fec_->Encode(shards_);
-        for (size_t i = DataShard;
-             i < DataShard + ParityShard; i++) {
-            memcpy(buf_ + fecHeaderSize, shards_[i]->data(),
-                   shards_[i]->size());
-            fec_->MarkFEC(buf_);
-            output_no_fec((const char *)buf_,
-                          shards_[i]->size() + fecHeaderSize);
-        }
-        pkt_idx_ = 0;
-    }
-    return len;
 }
 
 void Session::update() {
@@ -194,17 +137,4 @@ void Session::update() {
         rtask_handler(std::error_code(0, std::generic_category()),
                       static_cast<std::size_t>(n));
     }
-}
-
-ssize_t Session::output_no_fec(const char *buffer, std::size_t len) {
-    char *buf = static_cast<char *>(malloc(len + nonce_size + crc_size));
-    memcpy(buf + nonce_size + crc_size, buffer, len);
-    auto crc = crc32c_ieee(0, (byte *)buffer, len);
-    encode32u((byte *)(buf + nonce_size), crc);
-    dec_or_enc_->encrypt(buf, len + nonce_size + crc_size, buf,
-                         len + nonce_size + crc_size);
-    usocket_->async_send_to(
-        asio::buffer(buf, len + nonce_size + crc_size), ep_,
-        [buf](std::error_code ec, std::size_t len) { free(buf); });
-    return len;
 }

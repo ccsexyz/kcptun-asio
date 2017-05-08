@@ -65,7 +65,7 @@ void smux::do_stat_checker() {
     });
 }
 
-void smux::input(char *buf, std::size_t len, Handler handler) {
+void smux::async_input(char *buf, std::size_t len, Handler handler) {
     data_ready_ = true;
     if (destroy_) {
         if (handler) {
@@ -233,7 +233,7 @@ void smux::async_write(char *buf, std::size_t len, Handler handler) {
         return;
     }
     TRACE
-    out_handler_(buf, len, handler);
+    try_output(buf, len, handler);
 }
 
 void smux::destroy() {
@@ -414,4 +414,31 @@ void smux::async_connect(
                 connectHandler(ss);
             }
         });
+}
+
+void smux::try_output(char *buf, std::size_t len, Handler handler) {
+    tasks_.push_back(Task{buf, len, handler});
+    if(!writing_) {
+        writing_ = true;
+        try_write_task();
+    }
+}
+
+void smux::try_write_task() {
+    auto self = shared_from_this();
+    if(tasks_.empty()) {
+        writing_ = false;
+        return;
+    }
+    auto task = tasks_.front();
+    tasks_.pop_front();
+    output(task.buf, task.len, [this, self, task](std::error_code ec, std::size_t){
+        if(ec) {
+            return;
+        }
+        if(task.handler) {
+            task.handler(ec, task.len);
+        }
+        try_write_task();
+    });
 }

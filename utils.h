@@ -132,7 +132,128 @@ static inline uint32_t crc32c_cast(uint32_t crc, const unsigned char *buf,
     return (uint32_t)(crc >> 15 | crc << 17) + 0xa282ead8;
 }
 
+static inline std::error_code errc(int c) {
+    return std::error_code(c, std::generic_category());
+}
+
 #define TRACE
 //    std::cout << __func__ << " " << __LINE__ << " " << __FILE__ << std::endl;
+
+class clean_ {
+public:
+    clean_(const clean_ &) = delete;
+
+    clean_(clean_ &&) = delete;
+
+    clean_ &operator=(const clean_ &) = delete;
+
+    clean_() = default;
+};
+
+class DeferCaller final : clean_ {
+public:
+    DeferCaller(std::function<void()> &&functor)
+        : functor_(std::move(functor)) {}
+
+    DeferCaller(const std::function<void()> &functor) : functor_(functor) {}
+
+    ~DeferCaller() {
+        if (functor_)
+            functor_();
+    }
+
+    void cancel() { functor_ = nullptr; }
+
+private:
+    std::function<void()> functor_;
+};
+
+class AsyncReadWriter {
+public:
+    virtual ~AsyncReadWriter() = default;
+    virtual void async_read_some(char *buf, std::size_t len,
+                                 Handler handler) = 0;
+    virtual void async_write(char *buf, std::size_t len, Handler handler) = 0;
+};
+
+class AsyncInOutputer {
+public:
+    AsyncInOutputer() = default;
+    AsyncInOutputer(OutputHandler o) : o_(o) {}
+    virtual ~AsyncInOutputer() = default;
+    void set_output_handler(OutputHandler o) { o_ = o; }
+    virtual void async_input(char *buf, std::size_t len, Handler handler) = 0;
+
+protected:
+    void output(char *buf, std::size_t len, Handler handler) {
+        o_(buf, len, handler);
+    }
+
+private:
+    OutputHandler o_;
+};
+
+class UsocketReadWriter : public AsyncReadWriter {
+public:
+    UsocketReadWriter(asio::ip::udp::socket &&usocket, asio::ip::udp::endpoint ep)
+        : usocket_(std::move(usocket)), ep_(ep) {}
+    void async_read_some(char *buf, std::size_t len, Handler handler) override {
+        usocket_.async_receive(asio::buffer(buf, len), handler);
+    }
+    void async_write(char *buf, std::size_t len, Handler handler) override {
+        usocket_.async_send_to(asio::buffer(buf, len), ep_, handler);
+    }
+
+private:
+    asio::ip::udp::socket usocket_;
+    asio::ip::udp::endpoint ep_;
+};
+
+// class UsockSessRWriter : public AsyncReadWriter, public AsyncInOutputer {
+// public:
+//     UsockSessRWriter(OutputHandler o) : AsyncInOutputer(o) {}
+//     void async_input(char *buf, std::size_t len, Handler handler) override {
+//         if (!read_task_.check()) {
+//             input_tasks_.emplace_back(Task{buf, len, handler});
+//             return;
+//         }
+//         auto sz = len <= read_task.len ? len : task.len;
+//         memcpy(read_task_.buf, buf, sz);
+//         auto read_handler = read_task_.handler;
+//         read_task_.reset();
+//         if (read_handler) {
+//             read_handler(errc(0), sz);
+//         }
+//         if (handler) {
+//             handler(errc(0), sz);
+//         }
+//     }
+//     void async_read_some(char *buf, std::size_t len, Handler handler) override {
+//         if (input_tasks_.empty()) {
+//             read_task_ = {buf, len, handler};
+//             return;
+//         }
+//         auto first = input_task_.begin();
+//         auto task = *first;
+//         input_task_.pop_front();
+//         auto sz = task.len <= len ? task.len : len;
+//         memcpy(buf, task.buf, sz);
+//         auto input_handler = task.handler;
+//         task.reset();
+//         if (input_handler) {
+//             input_handler(errc(0), sz);
+//         }
+//         if (handler) {
+//             handler(errc(0), sz);
+//         }
+//     }
+//     void async_write(char *buf, std::size_t len, Handler handler) override {
+//         output(buf, len, handler);
+//     }
+
+// private:
+//     Task read_task_;
+//     std::deque<Task> input_tasks_;
+// };
 
 #endif // KCPTUN_UTILS_H

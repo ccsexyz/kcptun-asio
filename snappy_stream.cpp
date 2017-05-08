@@ -10,7 +10,7 @@ static const unsigned char magic_head[] = {0xff, 0x06, 0x00, 0x00, 0x73,
 
 snappy_stream_writer::snappy_stream_writer(asio::io_service &io_service,
                                            OutputHandler handler)
-    : service_(io_service), out_handler_(handler) {
+    : service_(io_service), AsyncInOutputer(handler) {
     memcpy(buf_, magic_head, snappy_magic_head_len);
     off_ = snappy_magic_head_len;
 }
@@ -43,20 +43,19 @@ void snappy_stream_writer::async_input(char *buf, std::size_t len,
     buf_[off_ + 2] = (length >> 8) & 0xFF;
     buf_[off_ + 3] = (length >> 16) & 0xFF;
     off_ += snappy_header_len + length;
-    out_handler_(buf_, off_,
-                 [this, self, handler](std::error_code ec, std::size_t) {
-                     off_ = 0;
-                     if (handler) {
-                         handler(ec, 0);
-                     }
-                     if (task_.check()) {
-                         auto b = task_.buf;
-                         auto l = task_.len;
-                         auto h = task_.handler;
-                         task_.reset();
-                         async_input(b, l, h);
-                     }
-                 });
+    output(buf_, off_, [this, self, handler](std::error_code ec, std::size_t) {
+        off_ = 0;
+        if (handler) {
+            handler(ec, 0);
+        }
+        if (task_.check()) {
+            auto b = task_.buf;
+            auto l = task_.len;
+            auto h = task_.handler;
+            task_.reset();
+            async_input(b, l, h);
+        }
+    });
 }
 
 void snappy_stream_reader::async_input(char *buf, std::size_t len,
@@ -150,9 +149,8 @@ void snappy_stream_reader::async_input(char *buf, std::size_t len,
     decode32u((byte *)(chunk_ + snappy_header_len), &crc32_chksum_2);
     if (chunk_type == chunk_type_uncompressed_data) {
         uint32_t crc32_chksum =
-            crc32c_cast(0,
-                        (unsigned char *)(chunk_ + snappy_header_len +
-                                          snappy_checksum_size),
+            crc32c_cast(0, (unsigned char *)(chunk_ + snappy_header_len +
+                                             snappy_checksum_size),
                         chunk_len - 4);
         if (crc32_chksum != crc32_chksum_2) {
             if (handler) {
@@ -160,7 +158,7 @@ void snappy_stream_reader::async_input(char *buf, std::size_t len,
             }
             return;
         }
-        out_handler_(
+        output(
             chunk_ + snappy_header_len + snappy_checksum_size,
             off_ - (snappy_header_len + snappy_checksum_size),
             [this, self, buf, len, handler](std::error_code ec, std::size_t) {
@@ -196,7 +194,7 @@ void snappy_stream_reader::async_input(char *buf, std::size_t len,
             }
             return;
         }
-        out_handler_(
+        output(
             decode_buffer_, uncompressed_length,
             [this, self, buf, len, handler](std::error_code ec, std::size_t) {
                 off_ = 0;

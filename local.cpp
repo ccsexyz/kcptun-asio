@@ -1,33 +1,122 @@
 #include "local.h"
+#include "async_fec.h"
+#include "snappy_stream.h"
+#include "smux.h"
+#include "sess.h"
 
 Local::Local(asio::io_service &io_service, asio::ip::udp::endpoint ep)
     : service_(io_service),
-      usocket_(std::make_shared<asio::ip::udp::socket>(
-          io_service, asio::ip::udp::endpoint(asio::ip::udp::v4(), 0))),
-      sess_(std::make_shared<Session>(io_service, usocket_, ep,
-                                      uint32_t(rand()))) {}
+      ep_(ep),
+      usock_(std::make_shared<UsocketReadWriter>(asio::ip::udp::socket(io_service, asio::ip::udp::endpoint(asio::ip::udp::v4(), 0)), ep)) {}
 
 void Local::run() {
+    auto fec = DataShard > 0 && ParityShard > 0;
+
+    in = [this](char *buf, std::size_t len, Handler handler) {
+        sess_->async_input(buf , len, handler);
+    };
+    if (fec) {
+        auto fec_in = std::make_shared<AsyncFECInputer>(in);
+        in = [this, fec_in](char *buf, std::size_t len, Handler handler) {
+            fec_in->async_input(buf, len, handler);
+        };
+    }
+    auto dec = getAsyncDecrypter(getDecEncrypter(Crypt, pbkdf2(Key)), [inb(in)](char *buf, std::size_t len, Handler handler){
+        auto n = nonce_size + crc_size;
+        buf += n;
+        len -= n;
+        inb(buf, len, handler);
+    });
+    in = [this, dec](char *buf, std::size_t len, Handler handler) {
+        dec->async_input(buf, len, handler);
+    };
+
+    out = [this](char *buf, std::size_t len, Handler handler) {
+        usock_->async_write(buf, len, handler);
+    };
+    auto enc = getAsyncEncrypter(getDecEncrypter(Crypt, pbkdf2(Key)), out);
+    out = [this, enc](char *buf, std::size_t len, Handler handler) {
+        char *buffer = static_cast<char *>(malloc(len + nonce_size + crc_size));
+        auto n = nonce_size + crc_size;
+        memcpy(buffer + n, buf, len);
+        auto crc = crc32c_ieee(0, (byte *)buf, len);
+        encode32u((byte *)(buffer + nonce_size), crc);
+        enc->async_input(buffer, len + n, [handler, buffer, len](std::error_code ec, std::size_t){
+            free(buffer);
+            if(handler) {
+                handler(ec, len);
+            }
+        });
+    };
+    if (fec) {
+        auto fec_out = std::make_shared<AsyncFECOutputer>(out);
+        out = [this, fec_out](char *buf, std::size_t len, Handler handler) {
+            fec_out->async_input(buf, len, handler);
+        };
+    }
+    sess_ = std::make_shared<Session>(service_, uint32_t(rand()), out);
     sess_->run();
-    do_receive();
+
+    out2 = [this](char *buf, std::size_t len, Handler handler) {
+        sess_->async_write(buf, len, handler);
+    };
+    if (!NoComp) {
+        auto snappy_writer =
+            std::make_shared<snappy_stream_writer>(service_, out2);
+        out2 = [this, snappy_writer](char *buf, std::size_t len,
+                                     Handler handler) {
+            snappy_writer->async_input(buf, len, handler);
+        };
+    }
+    smux_ = std::make_shared<smux>(service_, out2);
+    smux_->run();
+
+    in2 = [this](char *buf, std::size_t len, Handler handler) {
+        smux_->async_input(buf, len, handler);
+    };
+    if (!NoComp) {
+        auto snappy_reader =
+            std::make_shared<snappy_stream_reader>(service_, in2);
+        in2 = [this, snappy_reader](char *buf, std::size_t len,
+                                    Handler handler) {
+            snappy_reader->async_input(buf, len, handler);
+        };
+    }
+
+    do_usocket_receive();
+    do_sess_receive();
 }
 
-void Local::do_receive() {
-    auto self = shared_from_this();
-    usocket_->async_receive(asio::buffer(buf_, sizeof(buf_)),
-                            [this, self](std::error_code ec, std::size_t len) {
-                                if (ec) {
-                                    return;
-                                }
-                                sess_->input(buf_, len);
-                                do_receive();
-                            });
+void Local::do_usocket_receive() {
+    usock_->async_read_some(
+        buf_, sizeof(buf_), [this](std::error_code ec, std::size_t sz) {
+            if (ec) {
+                return;
+            }
+            in(buf_, sz, [this](std::error_code ec, std::size_t) {
+                if (ec) {
+                    return;
+                }
+                do_usocket_receive();
+            });
+        });
 }
 
-void Local::async_read_some(char *buffer, std::size_t len, Handler handler) {
-    sess_->async_read_some(buffer, len, handler);
+void Local::do_sess_receive() {
+    sess_->async_read_some(
+        sbuf_, sizeof(sbuf_), [this](std::error_code ec, std::size_t sz) {
+            if (ec) {
+                return;
+            }
+            in2(sbuf_, sz, [this](std::error_code ec, std::size_t) {
+                if (ec) {
+                    return;
+                }
+                do_sess_receive();
+            });
+        });
 }
 
-void Local::async_write(char *buffer, std::size_t len, Handler handler) {
-    sess_->async_write_some(buffer, len, handler);
+void Local::async_connect(std::function<void(std::shared_ptr<smux_sess>)> handler) {
+    smux_->async_connect(handler);
 }

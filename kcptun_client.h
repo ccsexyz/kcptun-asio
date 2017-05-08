@@ -36,14 +36,7 @@ public:
     void run();
 
 private:
-    void do_receive();
     void do_accept();
-    void try_write_task();
-    void output_handler(char *buf, std::size_t len, Handler handler);
-    void snappy_stream_reader_output_handler(char *buf, std::size_t len,
-                                             Handler handler);
-    void snappy_stream_writer_output_handler(char *buf, std::size_t len,
-                                             Handler handler);
 
 private:
     char buf_[65536];
@@ -52,11 +45,6 @@ private:
     asio::ip::udp::endpoint target_endpoint_;
     asio::ip::tcp::acceptor acceptor_;
     std::shared_ptr<Local> local_;
-    std::shared_ptr<smux> smux_;
-    std::deque<Task> tasks_;
-    bool writing_ = false;
-    std::shared_ptr<snappy_stream_writer> snappy_writer_;
-    std::shared_ptr<snappy_stream_reader> snappy_reader_;
 };
 
 #endif
