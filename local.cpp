@@ -1,19 +1,21 @@
 #include "local.h"
 #include "async_fec.h"
-#include "snappy_stream.h"
-#include "smux.h"
 #include "sess.h"
+#include "smux.h"
+#include "snappy_stream.h"
 
 Local::Local(asio::io_service &io_service, asio::ip::udp::endpoint ep)
-    : service_(io_service),
-      ep_(ep),
-      usock_(std::make_shared<UsocketReadWriter>(asio::ip::udp::socket(io_service, asio::ip::udp::endpoint(asio::ip::udp::v4(), 0)), ep)) {}
+    : service_(io_service), ep_(ep),
+      usock_(std::make_shared<UsocketReadWriter>(
+          asio::ip::udp::socket(
+              io_service, asio::ip::udp::endpoint(asio::ip::udp::v4(), 0)),
+          ep)) {}
 
 void Local::run() {
     auto fec = DataShard > 0 && ParityShard > 0;
 
     in = [this](char *buf, std::size_t len, Handler handler) {
-        sess_->async_input(buf , len, handler);
+        sess_->async_input(buf, len, handler);
     };
     if (fec) {
         auto fec_in = std::make_shared<AsyncFECInputer>(in);
@@ -21,12 +23,14 @@ void Local::run() {
             fec_in->async_input(buf, len, handler);
         };
     }
-    auto dec = getAsyncDecrypter(getDecEncrypter(Crypt, pbkdf2(Key)), [inb(in)](char *buf, std::size_t len, Handler handler){
-        auto n = nonce_size + crc_size;
-        buf += n;
-        len -= n;
-        inb(buf, len, handler);
-    });
+    auto dec = getAsyncDecrypter(
+        getDecEncrypter(Crypt, pbkdf2(Key)),
+        [inb(in)](char *buf, std::size_t len, Handler handler) {
+            auto n = nonce_size + crc_size;
+            buf += n;
+            len -= n;
+            inb(buf, len, handler);
+        });
     in = [this, dec](char *buf, std::size_t len, Handler handler) {
         dec->async_input(buf, len, handler);
     };
@@ -41,9 +45,10 @@ void Local::run() {
         memcpy(buffer + n, buf, len);
         auto crc = crc32c_ieee(0, (byte *)buf, len);
         encode32u((byte *)(buffer + nonce_size), crc);
-        enc->async_input(buffer, len + n, [handler, buffer, len](std::error_code ec, std::size_t){
+        enc->async_input(buffer, len + n, [handler, buffer, len](
+                                              std::error_code ec, std::size_t) {
             free(buffer);
-            if(handler) {
+            if (handler) {
                 handler(ec, len);
             }
         });
@@ -117,6 +122,23 @@ void Local::do_sess_receive() {
         });
 }
 
-void Local::async_connect(std::function<void(std::shared_ptr<smux_sess>)> handler) {
+void Local::async_connect(
+    std::function<void(std::shared_ptr<smux_sess>)> handler) {
     smux_->async_connect(handler);
+}
+
+bool Local::is_destroyed() const { return smux_->is_destroyed(); }
+
+void Local::run_scavenger() {
+    if (ScavengeTTL <= 0) {
+        return;
+    }
+    auto self = shared_from_this();
+    auto timer = std::make_shared<asio::deadline_timer>(
+        service_, boost::posix_time::seconds(ScavengeTTL));
+    timer->async_wait([this, self, timer](const std::error_code &){
+        if(smux_) {
+            smux_->destroy();
+        }
+    });
 }

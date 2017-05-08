@@ -9,9 +9,30 @@ kcptun_client::kcptun_client(asio::io_service &io_service,
       local_(std::make_shared<Local>(io_service, target_endpoint)) {}
 
 void kcptun_client::run() {
+    locals_.reserve(Conn);
+    for (int i = 0; i < Conn; i++) {
+        auto l = std::make_shared<Local>(service_, target_endpoint_);
+        l->run();
+        locals_.emplace_back(l);
+    }
     acceptor_.set_option(asio::ip::tcp::acceptor::reuse_address(true));
-    local_->run();
     do_accept();
+}
+
+void kcptun_client::async_choose_local(
+    std::function<void(std::shared_ptr<Local>)> f) {
+    auto i = rand() % Conn;
+    std::cout << "choose " << i << std::endl;
+    auto local = locals_[i];
+    if ((!local) || local->is_destroyed()) {
+        local = std::make_shared<Local>(service_, target_endpoint_);
+        local->run();
+        locals_[i] = local;
+        f(local);
+        return;
+    }
+    f(local);
+    return;
 }
 
 void kcptun_client::do_accept() {
@@ -23,17 +44,19 @@ void kcptun_client::do_accept() {
             return;
         }
         auto sock = std::make_shared<asio::ip::tcp::socket>(std::move(socket_));
-        TRACE
-        local_->async_connect(
-            [this, self, sock](std::shared_ptr<smux_sess> sess) {
-                TRACE
+        async_choose_local([this, self, sock](std::shared_ptr<Local> local) {
+            if (!local) {
+                return;
+            }
+            local->async_connect([this, self,
+                                  sock](std::shared_ptr<smux_sess> sess) {
                 if (!sess) {
-                    TRACE
                     return;
                 }
                 std::make_shared<kcptun_client_session>(service_, sock, sess)
                     ->run();
             });
+        });
         do_accept();
     });
 }
@@ -43,7 +66,12 @@ kcptun_client_session::kcptun_client_session(
     std::shared_ptr<smux_sess> sess)
     : service_(io_service), sock_(sock), sess_(sess) {}
 
+kcptun_client_session::~kcptun_client_session() {
+    std::cout << "stream closed\n";
+}
+
 void kcptun_client_session::run() {
+    std::cout << "stream opened\n";
     do_pipe1();
     do_pipe2();
 }
@@ -70,21 +98,20 @@ void kcptun_client_session::do_pipe1() {
 
 void kcptun_client_session::do_pipe2() {
     auto self = shared_from_this();
-    sess_->async_read_some(
-        buf2_, sizeof(buf2_),
-        [this, self](std::error_code ec, std::size_t len) {
-            if (ec) {
-                sock_->cancel();
-                return;
-            }
-            asio::async_write(
-                *sock_, asio::buffer(buf2_, len),
-                [this, self](std::error_code ec, std::size_t len) {
-                    if (ec) {
-                        sess_->destroy();
-                        return;
-                    }
-                    do_pipe2();
-                });
-        });
+    sess_->async_read_some(buf2_, sizeof(buf2_), [this,
+                                                  self](std::error_code ec,
+                                                        std::size_t len) {
+        if (ec) {
+            sock_->cancel();
+            return;
+        }
+        asio::async_write(*sock_, asio::buffer(buf2_, len),
+                          [this, self](std::error_code ec, std::size_t len) {
+                              if (ec) {
+                                  sess_->destroy();
+                                  return;
+                              }
+                              do_pipe2();
+                          });
+    });
 }

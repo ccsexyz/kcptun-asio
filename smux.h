@@ -34,6 +34,7 @@ public:
 
     void run();
     void destroy();
+    bool is_destroyed() const { return destroy_; }
     void async_input(char *buf, std::size_t len, Handler handler) override;
     // void
     // async_accept(std::function<void(std::shared_ptr<smux_sess>)> acceptHandler);

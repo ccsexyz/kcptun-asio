@@ -397,6 +397,12 @@ void smux::async_connect(
     std::function<void(std::shared_ptr<smux_sess>)> connectHandler) {
     TRACE
     auto self = shared_from_this();
+    if(destroy_) {
+        if(connectHandler) {
+            connectHandler(nullptr);
+        }
+        return;
+    }
     nextStreamID_ += 2;
     auto sid = nextStreamID_;
     auto ss = std::make_shared<smux_sess>(service_, sid, VERSION,
@@ -404,9 +410,10 @@ void smux::async_connect(
     async_write_frame(
         frame{VERSION, cmdSyn, 0, sid},
         [this, self, ss, connectHandler, sid](std::error_code ec, std::size_t) {
-            TRACE
             if (ec) {
-                TRACE
+                if(connectHandler) {
+                    connectHandler(nullptr);
+                }
                 return;
             }
             if (connectHandler) {

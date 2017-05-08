@@ -15,6 +15,7 @@ public:
     kcptun_client_session(asio::io_service &io_service,
                           std::shared_ptr<asio::ip::tcp::socket> sock,
                           std::shared_ptr<smux_sess> sess);
+    ~kcptun_client_session();
     void run();
 
 private:
@@ -37,6 +38,7 @@ public:
 
 private:
     void do_accept();
+    void async_choose_local(std::function<void(std::shared_ptr<Local>)> f);
 
 private:
     char buf_[65536];
@@ -44,6 +46,7 @@ private:
     asio::ip::tcp::socket socket_;
     asio::ip::udp::endpoint target_endpoint_;
     asio::ip::tcp::acceptor acceptor_;
+    std::vector<std::shared_ptr<Local>> locals_;
     std::shared_ptr<Local> local_;
 };
 
