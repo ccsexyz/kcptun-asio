@@ -8,14 +8,9 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
 set(SOURCE_FILES
         ikcp.c
         ikcp.h
-        local.cpp
-        local.h
-        main.cpp
         sess.cpp
         sess.h
         utils.h
-        kcptun_client.h
-        kcptun_client.cpp
         frame.h
         smux.h
         smux.cpp
@@ -39,9 +34,30 @@ set(SOURCE_FILES
 	reedsolomon.cpp
 	reedsolomon.h
         async_fec.cpp
-        async_fec.h)
+        async_fec.h
+        logger.h
+        logger.cpp)
 
-add_executable(kcptun ${SOURCE_FILES})
-target_link_libraries(kcptun pthread)
-target_link_libraries(kcptun cryptopp)
-target_link_libraries(kcptun snappy)
+set(KCPTUN_CLIENT_SOURCE_FILES ${SOURCE_FILES} 
+        kcptun_client_main.cpp
+        kcptun_client.h
+        kcptun_client.cpp
+        local.cpp
+        local.h)
+
+set(KCPTUN_SERVER_SOURCE_FILES ${SOURCE_FILES}
+        kcptun_server_main.cpp
+        kcptun_server.h
+        kcptun_server.cpp
+        server.cpp
+        server.h)
+
+add_executable(kcptun_client ${KCPTUN_CLIENT_SOURCE_FILES})
+target_link_libraries(kcptun_client pthread)
+target_link_libraries(kcptun_client cryptopp)
+target_link_libraries(kcptun_client snappy)
+
+add_executable(kcptun_server ${KCPTUN_SERVER_SOURCE_FILES})
+target_link_libraries(kcptun_server pthread)
+target_link_libraries(kcptun_server cryptopp)
+target_link_libraries(kcptun_server snappy)

@@ -33,6 +33,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include "logger.h"
 
 enum { nonce_size = 16, crc_size = 4 };
 enum { mtu_limit = 1500 };
@@ -209,51 +210,11 @@ private:
     asio::ip::udp::endpoint ep_;
 };
 
-// class UsockSessRWriter : public AsyncReadWriter, public AsyncInOutputer {
-// public:
-//     UsockSessRWriter(OutputHandler o) : AsyncInOutputer(o) {}
-//     void async_input(char *buf, std::size_t len, Handler handler) override {
-//         if (!read_task_.check()) {
-//             input_tasks_.emplace_back(Task{buf, len, handler});
-//             return;
-//         }
-//         auto sz = len <= read_task.len ? len : task.len;
-//         memcpy(read_task_.buf, buf, sz);
-//         auto read_handler = read_task_.handler;
-//         read_task_.reset();
-//         if (read_handler) {
-//             read_handler(errc(0), sz);
-//         }
-//         if (handler) {
-//             handler(errc(0), sz);
-//         }
-//     }
-//     void async_read_some(char *buf, std::size_t len, Handler handler) override {
-//         if (input_tasks_.empty()) {
-//             read_task_ = {buf, len, handler};
-//             return;
-//         }
-//         auto first = input_task_.begin();
-//         auto task = *first;
-//         input_task_.pop_front();
-//         auto sz = task.len <= len ? task.len : len;
-//         memcpy(buf, task.buf, sz);
-//         auto input_handler = task.handler;
-//         task.reset();
-//         if (input_handler) {
-//             input_handler(errc(0), sz);
-//         }
-//         if (handler) {
-//             handler(errc(0), sz);
-//         }
-//     }
-//     void async_write(char *buf, std::size_t len, Handler handler) override {
-//         output(buf, len, handler);
-//     }
-
-// private:
-//     Task read_task_;
-//     std::deque<Task> input_tasks_;
-// };
+static inline const char *get_bool_str(bool b) {
+    if (b) {
+        return "true";
+    }
+    return "false";
+}
 
 #endif // KCPTUN_UTILS_H

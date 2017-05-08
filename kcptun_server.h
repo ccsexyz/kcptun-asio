@@ -8,7 +8,7 @@ class kcptun_server_session final
     : public std::enable_shared_from_this<kcptun_server_session> {
 public:
     kcptun_server_session(asio::io_service &io_service,
-                          std::shared_ptr<Session> sess,
+                          std::shared_ptr<smux_sess> sess,
                           asio::ip::tcp::endpoint target_endpoint);
     void run();
 
@@ -20,7 +20,7 @@ private:
     char buf1_[4096];
     char buf2_[4096];
     asio::io_service &service_;
-    std::shared_ptr<Session> sess_;
+    std::shared_ptr<smux_sess> sess_;
     asio::ip::tcp::socket socket_;
     asio::ip::tcp::endpoint target_endpoint_;
 };
@@ -31,14 +31,20 @@ public:
                   asio::ip::udp::endpoint local_endpoint,
                   asio::ip::tcp::endpoint target_point);
     void run();
+    void do_receive();
 
 private:
-    void accept_handler(std::shared_ptr<Session> sess);
+    void accept_handler(std::shared_ptr<smux_sess> sess);
 
 private:
+    bool isfec_;
+    char buf_[65536];
     asio::io_service &service_;
+    asio::ip::udp::socket usocket_;
+    asio::ip::udp::endpoint ep_;
     asio::ip::tcp::endpoint target_endpoint_;
-    std::shared_ptr<Server> server_;
+    std::unique_ptr<BaseDecEncrypter> dec_or_enc_;
+    std::map<asio::ip::udp::endpoint, std::shared_ptr<Server>> servers_;
 };
 
 #endif

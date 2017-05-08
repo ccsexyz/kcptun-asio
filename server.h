@@ -8,25 +8,30 @@
 #include "config.h"
 #include "sess.h"
 
-using AcceptHandler = std::function<void(std::shared_ptr<Session>)>;
+class smux;
+class smux_sess;
 
-class Server final : public std::enable_shared_from_this<Server> {
+using AcceptHandler = std::function<void(std::shared_ptr<smux_sess>)>;
+
+class Server final : public std::enable_shared_from_this<Server>,
+                     public AsyncInOutputer {
 public:
-    Server(asio::io_service &io_service, asio::ip::udp::endpoint ep);
-    void run(AcceptHandler handler);
+    Server(asio::io_service &io_service, OutputHandler handler);
+    void run(AcceptHandler handler, uint32_t convid);
+    void async_input(char *buf, std::size_t len, Handler handler) override;
 
 private:
-    void do_receive();
+    void do_sess_receive();
 
 private:
-    AcceptHandler acceptHandler_;
-
-private:
-    char buf_[65536];
+    char sbuf_[2048];
     asio::io_service &service_;
-    asio::ip::udp::endpoint ep_;
-    std::shared_ptr<asio::ip::udp::socket> usocket_;
-    std::map<asio::ip::udp::endpoint, std::shared_ptr<Session>> sessions_;
+    std::shared_ptr<Session> sess_;
+    std::shared_ptr<smux> smux_;
+    OutputHandler in;
+    OutputHandler out;
+    OutputHandler in2;
+    OutputHandler out2;
 };
 
 #endif

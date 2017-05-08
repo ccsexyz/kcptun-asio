@@ -37,3 +37,5 @@ CMakeCache.txt
 Makefile 
 cmake_install.cmake
 kcptun
+kcptun_client
+kcptun_server

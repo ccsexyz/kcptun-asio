@@ -36,8 +36,7 @@ public:
     void destroy();
     bool is_destroyed() const { return destroy_; }
     void async_input(char *buf, std::size_t len, Handler handler) override;
-    // void
-    // async_accept(std::function<void(std::shared_ptr<smux_sess>)> acceptHandler);
+    void set_accept_handler(std::function<void(std::shared_ptr<smux_sess>)> handler) { acceptHandler_ = handler; }
     void async_write(char *buf, std::size_t len, Handler handler) override;
     void async_connect(
         std::function<void(std::shared_ptr<smux_sess>)> connectHandler);

@@ -66,11 +66,11 @@ kcptun_client_session::kcptun_client_session(
     : service_(io_service), sock_(sock), sess_(sess) {}
 
 kcptun_client_session::~kcptun_client_session() {
-    std::cout << "stream closed\n";
+    info("stream closed!");
 }
 
 void kcptun_client_session::run() {
-    std::cout << "stream opened\n";
+    info("stream opened!");
     do_pipe1();
     do_pipe2();
 }

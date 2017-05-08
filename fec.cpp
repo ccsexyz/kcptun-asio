@@ -26,11 +26,16 @@
 
 #include "fec.h"
 #include "encoding.h"
-#include "sess.h"
 #include <err.h>
 #include <iostream>
 #include <stdexcept>
 #include <sys/time.h>
+
+static inline uint32_t currentMs() {
+    struct timeval time;
+    gettimeofday(&time, NULL);
+    return uint32_t((time.tv_sec * 1000) + (time.tv_usec / 1000));
+}
 
 FEC::FEC(ReedSolomon enc) : enc(enc) {}
 
