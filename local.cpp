@@ -12,6 +12,7 @@ Local::Local(asio::io_service &io_service, asio::ip::udp::endpoint ep)
           ep)) {}
 
 void Local::run() {
+    auto self = shared_from_this();
     auto fec = DataShard > 0 && ParityShard > 0;
 
     in = [this](char *buf, std::size_t len, Handler handler) {
@@ -93,12 +94,13 @@ void Local::run() {
 }
 
 void Local::do_usocket_receive() {
+    auto self = shared_from_this();
     usock_->async_read_some(
-        buf_, sizeof(buf_), [this](std::error_code ec, std::size_t sz) {
+        buf_, sizeof(buf_), [this, self](std::error_code ec, std::size_t sz) {
             if (ec) {
                 return;
             }
-            in(buf_, sz, [this](std::error_code ec, std::size_t) {
+            in(buf_, sz, [this, self](std::error_code ec, std::size_t) {
                 if (ec) {
                     return;
                 }
@@ -108,12 +110,13 @@ void Local::do_usocket_receive() {
 }
 
 void Local::do_sess_receive() {
+    auto self = shared_from_this();
     sess_->async_read_some(
-        sbuf_, sizeof(sbuf_), [this](std::error_code ec, std::size_t sz) {
+        sbuf_, sizeof(sbuf_), [this, self](std::error_code ec, std::size_t sz) {
             if (ec) {
                 return;
             }
-            in2(sbuf_, sz, [this](std::error_code ec, std::size_t) {
+            in2(sbuf_, sz, [this, self](std::error_code ec, std::size_t) {
                 if (ec) {
                     return;
                 }
@@ -136,8 +139,8 @@ void Local::run_scavenger() {
     auto self = shared_from_this();
     auto timer = std::make_shared<asio::deadline_timer>(
         service_, boost::posix_time::seconds(ScavengeTTL));
-    timer->async_wait([this, self, timer](const std::error_code &){
-        if(smux_) {
+    timer->async_wait([this, timer, self](const std::error_code &) {
+        if (smux_) {
             smux_->destroy();
         }
     });

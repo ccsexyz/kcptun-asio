@@ -18,7 +18,6 @@ class AsyncFECOutputer : public AsyncInOutputer {
 public:
     AsyncFECOutputer(OutputHandler o = nullptr);
     void async_input(char *buf, std::size_t len, Handler handler) override;
-    void output_parityshards(std::size_t len, std::size_t i, Handler handler);
 
 private:
     byte buf_[2048];

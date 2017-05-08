@@ -47,7 +47,8 @@ void AsyncFECInputer::async_input(char *buf, std::size_t len, Handler handler) {
     if (pkt.flag != typeData && pkt.flag != typeFEC) {
         return;
     }
-    auto f = [pkt, handler, len, this](std::error_code ec, std::size_t) mutable {
+    auto f = [pkt, handler, len, this](std::error_code ec,
+                                       std::size_t) mutable {
         if (ec) {
             if (handler) {
                 handler(ec, len);
@@ -73,45 +74,51 @@ AsyncFECOutputer::AsyncFECOutputer(OutputHandler o)
       shards_(std::make_unique<std::vector<row_type>>(DataShard + ParityShard,
                                                       nullptr)) {}
 
-void AsyncFECOutputer::async_input(char *buf, std::size_t len, Handler handler) {
+void AsyncFECOutputer::async_input(char *buf, std::size_t len,
+                                   Handler handler) {
     memcpy(buf_ + fecHeaderSizePlus2, buf, len);
     fec_->MarkData(buf_, len + fecHeaderSizePlus2);
     auto slen = len + 2;
+    assert(pkt_idx_ < (DataShard + ParityShard));
     (*shards_)[pkt_idx_] = std::make_shared<std::vector<byte>>(
         &(buf_[fecHeaderSize]), &(buf_[fecHeaderSize + slen]));
     pkt_idx_++;
-    output((char *)buf_, len + fecHeaderSizePlus2, [this, len, handler](std::error_code ec, std::size_t) {
-        if (ec || pkt_idx_ < DataShard) {
-            if (handler) {
-                handler(ec, len);
-            }
-            return;
-        }
-        pkt_idx_ = 0;
-        fec_->Encode(*shards_);
-        output_parityshards(len, 0, handler);
-    });
-}
-
-void AsyncFECOutputer::output_parityshards(std::size_t len, std::size_t i,
-                                          Handler handler) {
-    if (i >= ParityShard) {
-        if (handler) {
-            handler(std::error_code(0, std::generic_category()), len);
-        }
-        return;
-    }
-    auto row = (*shards_)[i + DataShard];
-    memcpy(buf_ + fecHeaderSize, row->data(), row->size());
-    fec_->MarkFEC(buf_);
-    output((char *)buf_, row->size() + fecHeaderSize,
-           [this, i, len, handler](std::error_code ec, std::size_t) {
-               if (ec) {
+    if (pkt_idx_ < DataShard) {
+        output((char *)buf_, len + fecHeaderSizePlus2,
+               [this, len, handler](std::error_code ec, std::size_t) {
                    if (handler) {
                        handler(ec, len);
                    }
                    return;
-                   output_parityshards(len, i + 1, handler);
+               });
+        return;
+    }
+    pkt_idx_ = 0;
+    fec_->Encode(*shards_);
+    char *buffer = (char *)malloc(2048);
+    std::vector<row_type> shards(ParityShard, nullptr);
+    char *fec_headers = (char *)malloc(fecHeaderSize * ParityShard);
+    for (int i = 0; i < ParityShard; i++) {
+        shards[i] = (*shards_)[DataShard + i];
+        (*shards_)[DataShard + i] = nullptr;
+        fec_->MarkFEC((byte *)(fec_headers + fecHeaderSize * i));
+    }
+    output((char *)buf_, len + fecHeaderSizePlus2,
+           [this, len, handler, buffer, fec_headers, shards](std::error_code ec,
+                                                             std::size_t) {
+               DeferCaller defer([buffer, fec_headers, ec, handler, len] {
+                   free(buffer);
+                   free(fec_headers);
+                   if (handler) {
+                       handler(ec, len);
+                   }
+               });
+               for (int i = 0; i < ParityShard; i++) {
+                   memcpy(buffer, fec_headers + i * fecHeaderSize,
+                          fecHeaderSize);
+                   memcpy(buffer + fecHeaderSize, shards[i]->data(),
+                          shards[i]->size());
+                   output(buffer, shards[i]->size() + fecHeaderSize, nullptr);
                }
            });
 }

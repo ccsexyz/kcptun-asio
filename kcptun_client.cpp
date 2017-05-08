@@ -22,7 +22,6 @@ void kcptun_client::run() {
 void kcptun_client::async_choose_local(
     std::function<void(std::shared_ptr<Local>)> f) {
     auto i = rand() % Conn;
-    std::cout << "choose " << i << std::endl;
     auto local = locals_[i];
     if ((!local) || local->is_destroyed()) {
         local = std::make_shared<Local>(service_, target_endpoint_);
