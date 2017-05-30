@@ -19,27 +19,24 @@ void Session::run() {
     ikcp_nodelay(kcp_, NoDelay, Interval, Resend, Nc);
     ikcp_wndsize(kcp_, SndWnd, RcvWnd);
     ikcp_setmtu(kcp_, Mtu);
-    run_timer();
+    timer_ = std::make_shared<asio::deadline_timer>(service_);
+    run_timer(boost::posix_time::microsec_clock::universal_time() + boost::posix_time::millisec(Interval));
     // run_peeksize_checker();
 }
 
-void Session::run_timer() {
-    auto self = shared_from_this();
-    std::weak_ptr<Session> ws = self;
-    if (!timer_) {
-        timer_ = std::make_shared<asio::deadline_timer>(
-            service_, boost::posix_time::milliseconds(10));
+void Session::run_timer(boost::posix_time::ptime pt) {
+    if(timer_->expires_at() <= pt && timer_->expires_from_now() >= boost::posix_time::millisec(0)) {
+        return;
     } else {
-        timer_->expires_at(timer_->expires_at() +
-                           boost::posix_time::milliseconds(10));
+        timer_->expires_at(pt);
     }
+    std::weak_ptr<Session> ws = shared_from_this();
     timer_->async_wait([this, ws](const std::error_code &) {
         auto s = ws.lock();
         if (!s) {
             return;
         }
         update();
-        run_timer();
     });
 }
 
@@ -65,6 +62,8 @@ void Session::input(char *buffer, std::size_t len) {
     TRACE
     if (rtask_.check()) {
         update();
+    } else {
+        run_timer(boost::posix_time::microsec_clock::universal_time() + boost::posix_time::millisec(Interval));
     }
     return;
 }
@@ -111,6 +110,7 @@ void Session::async_write(char *buffer, std::size_t len, Handler handler) {
         handler(std::error_code(0, std::generic_category()),
                 static_cast<std::size_t>(n));
     }
+    run_timer(boost::posix_time::microsec_clock::universal_time() + boost::posix_time::millisec(Interval));
 }
 
 int Session::output_wrapper(const char *buffer, int len, struct IKCPCB *kcp,
@@ -122,6 +122,16 @@ int Session::output_wrapper(const char *buffer, int len, struct IKCPCB *kcp,
 }
 
 void Session::update() {
+    DeferCaller defer([this]{
+        auto current = iclock();
+        auto next = ikcp_check(kcp_, current);
+        next -= current;
+        if(next == 0) {
+            next = 1;
+        }
+        // info("next = %u\n", next);
+        run_timer(boost::posix_time::microsec_clock::universal_time()+boost::posix_time::millisec(next));
+    });
     ikcp_update(kcp_, iclock());
     if (!rtask_.check()) {
         return;

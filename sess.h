@@ -22,7 +22,7 @@ public:
     ~Session();
 
 private:
-    void run_timer();
+    void run_timer(boost::posix_time::ptime pt);
     static int output_wrapper(const char *buffer, int len, struct IKCPCB *kcp,
                               void *user);
     void update();
