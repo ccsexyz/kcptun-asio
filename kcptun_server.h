@@ -15,6 +15,7 @@ public:
 private:
     void do_pipe1();
     void do_pipe2();
+    void destroy();
 
 private:
     char buf1_[4096];
@@ -38,13 +39,14 @@ private:
 
 private:
     bool isfec_;
-    char buf_[65536];
+    char buf_[2048];
     asio::io_service &service_;
     asio::ip::udp::socket usocket_;
     asio::ip::udp::endpoint ep_;
     asio::ip::tcp::endpoint target_endpoint_;
     std::unique_ptr<BaseDecEncrypter> dec_or_enc_;
     std::map<asio::ip::udp::endpoint, std::shared_ptr<Server>> servers_;
+    Buffers buffers_;
 };
 
 #endif

@@ -35,6 +35,7 @@ private:
     OutputHandler out;
     OutputHandler in2;
     OutputHandler out2;
+    Buffers buffers_;
 };
 
 #endif

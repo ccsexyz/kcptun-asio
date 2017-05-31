@@ -21,6 +21,7 @@ public:
 private:
     void do_pipe1();
     void do_pipe2();
+    void destroy();
 
 private:
     char buf1_[4096];

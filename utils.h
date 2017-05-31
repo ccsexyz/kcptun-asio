@@ -5,7 +5,6 @@
 #ifndef KCPTUN_UTILS_H
 #define KCPTUN_UTILS_H
 
-#include "encoding.h"
 #include <algorithm>
 #include <arpa/inet.h>
 #include <asio.hpp>
@@ -33,6 +32,8 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+
+#include "encoding.h"
 #include "logger.h"
 
 enum { nonce_size = 16, crc_size = 4 };
@@ -196,7 +197,8 @@ private:
 
 class UsocketReadWriter : public AsyncReadWriter {
 public:
-    UsocketReadWriter(asio::ip::udp::socket &&usocket, asio::ip::udp::endpoint ep)
+    UsocketReadWriter(asio::ip::udp::socket &&usocket,
+                      asio::ip::udp::endpoint ep)
         : usocket_(std::move(usocket)), ep_(ep) {}
     void async_read_some(char *buf, std::size_t len, Handler handler) override {
         usocket_.async_receive(asio::buffer(buf, len), handler);
@@ -216,5 +218,55 @@ static inline const char *get_bool_str(bool b) {
     }
     return "false";
 }
+
+class Buffers final {
+public:
+    Buffers(std::size_t n = 2048) : n(n) {}
+    ~Buffers() {
+        for (auto &buf : all_bufs_) {
+            free(buf);
+        }
+    }
+    void push_back(char *buf) {
+        bufs_.insert(buf);
+        auto s1 = bufs_.size();
+        auto s2 = all_bufs_.size();
+        if(s1 * 4 > s2 * 3 && s2 > 16) {
+            std::vector<char *> v;
+            auto it = 0;
+            for(auto buf : bufs_) {
+                if(++it > s1 / 2) {
+                    break;
+                }
+                v.push_back(buf);
+            }
+            for(auto buf : v) {
+                bufs_.erase(buf);
+                all_bufs_.erase(buf);
+                free(buf);
+            }
+        }
+    }
+    char *get() {
+        for(auto buf : bufs_) {
+            bufs_.erase(buf);
+            return buf;
+        }
+        char *buf = static_cast<char *>(malloc(n));
+        all_bufs_.insert(buf);
+        return buf;
+    }
+    std::size_t capacity() const {
+        return all_bufs_.size();
+    }
+    std::size_t size() const {
+        return bufs_.size();
+    }
+
+private:
+    std::size_t n;
+    std::unordered_set<char *> bufs_;
+    std::unordered_set<char *> all_bufs_;
+};
 
 #endif // KCPTUN_UTILS_H

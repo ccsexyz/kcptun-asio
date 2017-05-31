@@ -57,8 +57,7 @@ void kcptun_server::do_receive() {
                 server = std::make_shared<Server>(
                     service_, [this, self, ep](char *buf, std::size_t len,
                                                Handler handler) {
-                        char *buffer =
-                            (char *)malloc(len + nonce_size + crc_size);
+                        char *buffer = buffers_.get();
                         memcpy(buffer + nonce_size + crc_size, buf, len);
                         auto crc = crc32c_ieee(0, (byte *)buf, len);
                         encode32u((byte *)(buffer + nonce_size), crc);
@@ -69,7 +68,7 @@ void kcptun_server::do_receive() {
                             asio::buffer(buffer, len + nonce_size + crc_size),
                             ep, [handler, this, self, len,
                                  buffer](std::error_code ec, std::size_t) {
-                                free(buffer);
+                                buffers_.push_back(buffer);
                                 if (handler) {
                                     handler(ec, len);
                                 }
@@ -105,18 +104,26 @@ void kcptun_server_session::run() {
     });
 }
 
+void kcptun_server_session::destroy() {
+    socket_.close();
+    if(sess_) {
+        sess_->destroy();
+    }
+}
+
 void kcptun_server_session::do_pipe1() {
     auto self = shared_from_this();
     socket_.async_read_some(
         asio::buffer(buf1_, sizeof(buf1_)),
         [this, self](std::error_code ec, std::size_t len) {
             if (ec) {
+                destroy();
                 return;
             }
             sess_->async_write(
                 buf1_, len, [this, self](std::error_code ec, std::size_t len) {
                     if (ec) {
-                        socket_.cancel();
+                        destroy();
                         return;
                     }
                     do_pipe1();
@@ -130,12 +137,13 @@ void kcptun_server_session::do_pipe2() {
                                                   self](std::error_code ec,
                                                         std::size_t len) {
         if (ec) {
-            socket_.cancel();
+            destroy();
             return;
         }
         asio::async_write(socket_, asio::buffer(buf2_, len),
                           [this, self](std::error_code ec, std::size_t len) {
                               if (ec) {
+                                  destroy();
                                   return;
                               }
                               do_pipe2();

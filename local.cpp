@@ -41,14 +41,16 @@ void Local::run() {
     };
     auto enc = getAsyncEncrypter(getDecEncrypter(Crypt, pbkdf2(Key)), out);
     out = [this, enc](char *buf, std::size_t len, Handler handler) {
-        char *buffer = static_cast<char *>(malloc(len + nonce_size + crc_size));
+        char *buffer = buffers_.get();
         auto n = nonce_size + crc_size;
         memcpy(buffer + n, buf, len);
+        // info("capacity: %lu size: %lu\n", buffers_.capacity(), buffers_.size());
         auto crc = crc32c_ieee(0, (byte *)buf, len);
         encode32u((byte *)(buffer + nonce_size), crc);
-        enc->async_input(buffer, len + n, [handler, buffer, len](
+        enc->async_input(buffer, len + n, [handler, buffer, len, this](
                                               std::error_code ec, std::size_t) {
-            free(buffer);
+            buffers_.push_back(buffer);
+            // info("capacity: %lu size: %lu\n", buffers_.capacity(), buffers_.size());
             if (handler) {
                 handler(ec, len);
             }

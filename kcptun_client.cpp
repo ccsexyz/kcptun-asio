@@ -75,19 +75,28 @@ void kcptun_client_session::run() {
     do_pipe2();
 }
 
+void kcptun_client_session::destroy() {
+    if(sock_) {
+        sock_->close();
+    }
+    if(sess_) {
+        sess_->destroy();
+    }
+}
+
 void kcptun_client_session::do_pipe1() {
     auto self = shared_from_this();
     sock_->async_read_some(
         asio::buffer(buf1_, sizeof(buf1_)),
         [this, self](std::error_code ec, std::size_t len) {
             if (ec) {
-                sess_->destroy();
+                destroy();
                 return;
             }
             sess_->async_write(buf1_, len,
                                [this, self](std::error_code ec, std::size_t) {
                                    if (ec) {
-                                       sock_->cancel();
+                                       destroy();
                                        return;
                                    }
                                    do_pipe1();
@@ -101,13 +110,13 @@ void kcptun_client_session::do_pipe2() {
                                                   self](std::error_code ec,
                                                         std::size_t len) {
         if (ec) {
-            sock_->cancel();
+            destroy();
             return;
         }
         asio::async_write(*sock_, asio::buffer(buf2_, len),
                           [this, self](std::error_code ec, std::size_t len) {
                               if (ec) {
-                                  sess_->destroy();
+                                  destroy();
                                   return;
                               }
                               do_pipe2();

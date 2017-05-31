@@ -155,25 +155,24 @@ void smux::async_read_full(char *buf, std::size_t len, Handler handler) {
 void smux::do_receive_frame() {
     auto self = shared_from_this();
     frame_flag = true;
-    async_read_full(frame_header_, headerSize,
-                    [this, self](std::error_code ec, std::size_t) {
-                        if (ec) {
-                            TRACE
-                            return;
-                        }
-                        frame f = frame::unmarshal(frame_header_);
-                        async_read_full(frame_data_,
-                                        static_cast<std::size_t>(f.length),
-                                        [f, this, self](std::error_code ec,
-                                                        std::size_t) mutable {
-                                            if (ec) {
-                                                return;
-                                            }
-                                            f.data = frame_data_;
-                                            frame_flag = false;
-                                            handle_frame(f);
-                                        });
-                    });
+    async_read_full(frame_header_, headerSize, [this, self](std::error_code ec,
+                                                            std::size_t) {
+        if (ec) {
+            TRACE
+            return;
+        }
+        frame f = frame::unmarshal(frame_header_);
+        async_read_full(
+            frame_data_, static_cast<std::size_t>(f.length),
+            [f, this, self](std::error_code ec, std::size_t) mutable {
+                if (ec) {
+                    return;
+                }
+                f.data = frame_data_;
+                frame_flag = false;
+                handle_frame(f);
+            });
+    });
 }
 
 void smux::handle_frame(frame f) {
@@ -397,8 +396,8 @@ void smux::async_connect(
     std::function<void(std::shared_ptr<smux_sess>)> connectHandler) {
     TRACE
     auto self = shared_from_this();
-    if(destroy_) {
-        if(connectHandler) {
+    if (destroy_) {
+        if (connectHandler) {
             connectHandler(nullptr);
         }
         return;
@@ -411,7 +410,7 @@ void smux::async_connect(
         frame{VERSION, cmdSyn, 0, sid},
         [this, self, ss, connectHandler, sid](std::error_code ec, std::size_t) {
             if (ec) {
-                if(connectHandler) {
+                if (connectHandler) {
                     connectHandler(nullptr);
                 }
                 return;
@@ -425,7 +424,7 @@ void smux::async_connect(
 
 void smux::try_output(char *buf, std::size_t len, Handler handler) {
     tasks_.push_back(Task{buf, len, handler});
-    if(!writing_) {
+    if (!writing_) {
         writing_ = true;
         try_write_task();
     }
@@ -433,19 +432,20 @@ void smux::try_output(char *buf, std::size_t len, Handler handler) {
 
 void smux::try_write_task() {
     auto self = shared_from_this();
-    if(tasks_.empty()) {
+    if (tasks_.empty()) {
         writing_ = false;
         return;
     }
     auto task = tasks_.front();
     tasks_.pop_front();
-    output(task.buf, task.len, [this, self, task](std::error_code ec, std::size_t){
-        if(ec) {
-            return;
-        }
-        if(task.handler) {
-            task.handler(ec, task.len);
-        }
-        try_write_task();
-    });
+    output(task.buf, task.len,
+           [this, self, task](std::error_code ec, std::size_t) {
+               if (ec) {
+                   return;
+               }
+               if (task.handler) {
+                   task.handler(ec, task.len);
+               }
+               try_write_task();
+           });
 }
