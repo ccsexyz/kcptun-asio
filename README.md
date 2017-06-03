@@ -1,6 +1,6 @@
 # kcptun-asio
 
-一个基于 ASIO/C++11 实现的 kcptun,将与 [kcptun(golang)](https://github.com/xtaci/kcptun) 完全兼容  
+一个基于 ASIO/C++11 实现的 kcptun,与 [kcptun(golang)](https://github.com/xtaci/kcptun) 完全兼容  
 
 # 目前进度  
 
@@ -10,8 +10,7 @@
 * snappy 流数据压缩与解压缩,依赖 [snappy](https://github.com/google/snappy),数据帧格式 [frame_format](https://github.com/google/snappy/blob/master/framing_format.txt)    
 * FEC,主要实现代码来自 [libkcp](https://github.com/xtaci/libkcp)   
 
-已实现客户端部分,能够兼容现有的 kcptun 服务端   
-已初步实现服务端部分   
+客户端和服务端均已实现,能够与现有的kcptun(go)完全兼容   
 
 # TODO  
 
@@ -21,4 +20,5 @@
 * ~~实现 snappy 数据流压缩~~  
 * ~~实现更多的加密方式~~  
 * ~~实现 smux keepalive~~  
-* 性能优化  
+* 性能优化  
+* 完善 smux  
