@@ -139,8 +139,8 @@ void Local::run_scavenger() {
         return;
     }
     auto self = shared_from_this();
-    auto timer = std::make_shared<asio::deadline_timer>(
-        service_, boost::posix_time::seconds(ScavengeTTL));
+    auto timer = std::make_shared<asio::high_resolution_timer>(
+        service_, std::chrono::seconds(ScavengeTTL));
     timer->async_wait([this, timer, self](const std::error_code &) {
         if (smux_) {
             smux_->destroy();

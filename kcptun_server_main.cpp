@@ -28,6 +28,7 @@ void print_configs() {
 int main(int argc, char **argv) {
     parse_command_lines(argc, argv);
     process_configs();
+    setLogFile(LogFile);
     print_configs();
     asio::io_service io_service;
     asio::ip::udp::endpoint local_endpoint;

@@ -19,13 +19,13 @@ void Session::run() {
     ikcp_nodelay(kcp_, NoDelay, Interval, Resend, Nc);
     ikcp_wndsize(kcp_, SndWnd, RcvWnd);
     ikcp_setmtu(kcp_, Mtu);
-    timer_ = std::make_shared<asio::deadline_timer>(service_);
-    run_timer(boost::posix_time::microsec_clock::universal_time() + boost::posix_time::millisec(Interval));
+    timer_ = std::make_shared<asio::high_resolution_timer>(service_);
+    run_timer(std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(Interval));
     // run_peeksize_checker();
 }
 
-void Session::run_timer(boost::posix_time::ptime pt) {
-    if(timer_->expires_at() <= pt && timer_->expires_from_now() >= boost::posix_time::millisec(0)) {
+void Session::run_timer(std::chrono::high_resolution_clock::time_point pt) {
+    if(timer_->expires_at() <= pt && timer_->expires_from_now() >= std::chrono::milliseconds(0)) {
         return;
     } else {
         timer_->expires_at(pt);
@@ -42,8 +42,8 @@ void Session::run_timer(boost::posix_time::ptime pt) {
 
 void Session::run_peeksize_checker() {
     auto self = shared_from_this();
-    auto timer = std::make_shared<asio::deadline_timer>(
-        service_, boost::posix_time::seconds(1));
+    auto timer = std::make_shared<asio::high_resolution_timer>(
+        service_, std::chrono::seconds(1));
     timer->async_wait([this, self, timer](const std::error_code &) {
         std::cout << ikcp_peeksize(kcp_) << std::endl;
         run_peeksize_checker();
@@ -63,7 +63,7 @@ void Session::input(char *buffer, std::size_t len) {
     if (rtask_.check()) {
         update();
     } else {
-        run_timer(boost::posix_time::microsec_clock::universal_time() + boost::posix_time::millisec(Interval));
+        run_timer(std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(Interval));
     }
     return;
 }
@@ -110,7 +110,7 @@ void Session::async_write(char *buffer, std::size_t len, Handler handler) {
         handler(std::error_code(0, std::generic_category()),
                 static_cast<std::size_t>(n));
     }
-    run_timer(boost::posix_time::microsec_clock::universal_time() + boost::posix_time::millisec(Interval));
+    run_timer(std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(Interval));
 }
 
 int Session::output_wrapper(const char *buffer, int len, struct IKCPCB *kcp,
@@ -130,7 +130,7 @@ void Session::update() {
             next = 1;
         }
         // info("next = %u\n", next);
-        run_timer(boost::posix_time::microsec_clock::universal_time()+boost::posix_time::millisec(next));
+        run_timer(std::chrono::high_resolution_clock::now()+std::chrono::milliseconds(next));
     });
     ikcp_update(kcp_, iclock());
     if (!rtask_.check()) {

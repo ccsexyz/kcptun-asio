@@ -74,8 +74,8 @@ private:
     std::deque<Task> tasks_;
     std::function<void(std::shared_ptr<smux_sess>)> acceptHandler_;
     std::unordered_map<uint32_t, std::weak_ptr<smux_sess>> sessions_;
-    std::shared_ptr<asio::deadline_timer> keepalive_check_timer_;
-    std::shared_ptr<asio::deadline_timer> keepalive_sender_timer_;
+    std::shared_ptr<asio::high_resolution_timer> keepalive_check_timer_;
+    std::shared_ptr<asio::high_resolution_timer> keepalive_sender_timer_;
     bool frame_flag = false;
 };
 

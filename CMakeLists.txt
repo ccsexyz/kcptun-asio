@@ -53,11 +53,15 @@ set(KCPTUN_SERVER_SOURCE_FILES ${SOURCE_FILES}
         server.h)
 
 add_executable(kcptun_client ${KCPTUN_CLIENT_SOURCE_FILES})
-target_link_libraries(kcptun_client pthread)
 target_link_libraries(kcptun_client cryptopp)
 target_link_libraries(kcptun_client snappy)
+if(UNIX)      
+        target_link_libraries(kcptun_client pthread)
+endif()
 
 add_executable(kcptun_server ${KCPTUN_SERVER_SOURCE_FILES})
-target_link_libraries(kcptun_server pthread)
 target_link_libraries(kcptun_server cryptopp)
 target_link_libraries(kcptun_server snappy)
+if(UNIX)      
+        target_link_libraries(kcptun_server pthread)
+endif()

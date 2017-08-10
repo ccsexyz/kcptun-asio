@@ -6,8 +6,8 @@
 #define KCPTUN_UTILS_H
 
 #include <algorithm>
-#include <arpa/inet.h>
 #include <asio.hpp>
+#include <asio/high_resolution_timer.hpp>
 #include <assert.h>
 #include <cstdio>
 #include <cstdlib>
@@ -23,15 +23,14 @@
 #include <stdint.h>
 #include <streambuf>
 #include <string>
-#include <sys/time.h>
 #include <system_error>
 #include <tuple>
 #include <type_traits>
-#include <unistd.h>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <chrono>
 
 #include "encoding.h"
 #include "logger.h"

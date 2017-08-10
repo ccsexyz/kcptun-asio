@@ -10,12 +10,12 @@ void smux::run() {
 void smux::do_keepalive_checker() {
     std::weak_ptr<smux> weaksmux = shared_from_this();
     if (!keepalive_check_timer_) {
-        keepalive_check_timer_ = std::make_shared<asio::deadline_timer>(
-            service_, boost::posix_time::seconds(KeepAlive * 3));
+        keepalive_check_timer_ = std::make_shared<asio::high_resolution_timer>(
+            service_, std::chrono::seconds(KeepAlive * 3));
     } else {
         keepalive_check_timer_->expires_at(
             keepalive_check_timer_->expires_at() +
-            boost::posix_time::seconds(KeepAlive * 3));
+            std::chrono::seconds(KeepAlive * 3));
     }
     keepalive_check_timer_->async_wait(
         [this, weaksmux](const std::error_code &) {
@@ -35,12 +35,12 @@ void smux::do_keepalive_checker() {
 void smux::do_keepalive_sender() {
     std::weak_ptr<smux> weaksmux = shared_from_this();
     if (!keepalive_sender_timer_) {
-        keepalive_sender_timer_ = std::make_shared<asio::deadline_timer>(
-            service_, boost::posix_time::seconds(KeepAlive));
+        keepalive_sender_timer_ = std::make_shared<asio::high_resolution_timer>(
+            service_, std::chrono::seconds(KeepAlive));
     } else {
         keepalive_sender_timer_->expires_at(
             keepalive_sender_timer_->expires_at() +
-            boost::posix_time::seconds(KeepAlive));
+            std::chrono::seconds(KeepAlive));
     }
     keepalive_sender_timer_->async_wait(
         [this, weaksmux](const std::error_code &) {
@@ -55,8 +55,8 @@ void smux::do_keepalive_sender() {
 
 void smux::do_stat_checker() {
     auto self = shared_from_this();
-    auto stat_timer = std::make_shared<asio::deadline_timer>(
-        service_, boost::posix_time::seconds(1));
+    auto stat_timer = std::make_shared<asio::high_resolution_timer>(
+        service_, std::chrono::seconds(1));
     stat_timer->async_wait([this, self, stat_timer](const std::error_code &) {
         if (destroy_) {
             return;

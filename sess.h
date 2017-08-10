@@ -22,7 +22,7 @@ public:
     ~Session();
 
 private:
-    void run_timer(boost::posix_time::ptime pt);
+    void run_timer(std::chrono::high_resolution_clock::time_point pt);
     static int output_wrapper(const char *buffer, int len, struct IKCPCB *kcp,
                               void *user);
     void update();
@@ -36,7 +36,7 @@ public:
 
 private:
     asio::io_service &service_;
-    std::shared_ptr<asio::deadline_timer> timer_;
+    std::shared_ptr<asio::high_resolution_timer> timer_;
     Task rtask_;
     Task wtask_;
 
