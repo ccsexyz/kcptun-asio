@@ -1,3 +1,4 @@
+#include <asio/high_resolution_timer.hpp>
 #include "logger.h"
 #include <chrono>
 #include <fstream>
@@ -5,7 +6,6 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-#include <asio/high_resolution_timer.hpp>
 
 static int loglevel = VERBOSE;
 

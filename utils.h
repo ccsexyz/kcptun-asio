@@ -31,6 +31,7 @@
 #include <utility>
 #include <vector>
 #include <chrono>
+#include <map>
 
 #include "encoding.h"
 #include "logger.h"

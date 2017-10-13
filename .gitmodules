@@ -1,0 +1,6 @@
+[submodule "snappy"]
+	path = snappy
+	url = https://github.com/google/snappy
+[submodule "cryptopp"]
+	path = cryptopp
+	url = https://github.com/weidai11/cryptopp
