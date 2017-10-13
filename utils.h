@@ -6,8 +6,8 @@
 #define KCPTUN_UTILS_H
 
 #include <algorithm>
-#include <asio.hpp>
-#include <asio/high_resolution_timer.hpp>
+#include "asio.hpp"
+#include "asio/high_resolution_timer.hpp"
 #include <assert.h>
 #include <cstdio>
 #include <cstdlib>

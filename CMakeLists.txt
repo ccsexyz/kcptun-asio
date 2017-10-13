@@ -4,6 +4,7 @@ project(kcptun)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -DASIO_STANDALONE")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
+include_directories("${CMAKE_SOURCE_DIR}/asio/asio/include")
 
 set(SOURCE_FILES
         ikcp.c

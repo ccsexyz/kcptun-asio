@@ -4,3 +4,6 @@
 [submodule "cryptopp"]
 	path = cryptopp
 	url = https://github.com/weidai11/cryptopp
+[submodule "asio"]
+	path = asio
+	url = https://github.com/chriskohlhoff/asio
