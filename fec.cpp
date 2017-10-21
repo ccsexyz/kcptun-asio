@@ -29,12 +29,12 @@
 #include <err.h>
 #include <iostream>
 #include <stdexcept>
-#include <sys/time.h>
+#include "utils.h"
 
 static inline uint32_t currentMs() {
-    struct timeval time;
-    gettimeofday(&time, NULL);
-    return uint32_t((time.tv_sec * 1000) + (time.tv_usec / 1000));
+    long sec, usec;
+    itimeofday(&sec, &usec);
+    return uint32_t((sec * 1000) + (usec / 1000));
 }
 
 FEC::FEC(ReedSolomon enc) : enc(enc) {}
@@ -63,9 +63,7 @@ fecPacket FEC::Decode(byte *data, size_t sz) {
     fecPacket pkt;
     data = decode32u(data, &pkt.seqid);
     data = decode16u(data, &pkt.flag);
-    struct timeval time;
-    gettimeofday(&time, NULL);
-    pkt.ts = uint32_t(time.tv_sec * 1000 + time.tv_usec / 1000);
+    pkt.ts = currentMs();
     pkt.data =
         std::make_shared<std::vector<byte>>(data, data + sz - fecHeaderSize);
     return pkt;

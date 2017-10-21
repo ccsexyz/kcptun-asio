@@ -68,11 +68,14 @@ using OutputHandler = std::function<void(char *, std::size_t, Handler)>;
 
 static void itimeofday(long *sec, long *usec) {
     struct timeval time;
-    gettimeofday(&time, NULL);
-    if (sec)
-        *sec = time.tv_sec;
-    if (usec)
-        *usec = time.tv_usec;
+    auto now = std::chrono::system_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count();
+    if (sec != nullptr) {
+        *sec = ms / 1000000;
+    }
+    if (usec != nullptr) {
+        *usec = ms % 1000000;
+    }
 }
 
 static uint64_t iclock64(void) {
