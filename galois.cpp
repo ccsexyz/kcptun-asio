@@ -29,7 +29,7 @@
 
 extern const int fieldSize;
 extern byte mulTable[256][256];
-extern const byte logTable[];
+extern byte logTable[];
 extern byte expTable[];
 
 byte galAdd(byte a, byte b) { return a ^ b; }

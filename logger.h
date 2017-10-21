@@ -3,7 +3,7 @@
 
 #include <string>
 
-enum { VERBOSE, DEBUG, INFO, WARN, ERROR, FATAL };
+enum { VERBOSE, DEBUG, INFO, WARN, FATAL };
 
 void setLogLevel(int level);
 
@@ -15,7 +15,6 @@ void log(int level, const int line, const char *func, const char *fmt...);
 #define debug(fmt, ...) log(DEBUG, __LINE__, __func__, fmt, ##__VA_ARGS__)
 #define info(fmt, ...) log(INFO, __LINE__, __func__, fmt, ##__VA_ARGS__)
 #define warn(fmt, ...) log(WARN, __LINE__, __func__, fmt, ##__VA_ARGS__)
-#define error(fmt, ...) log(ERROR, __LINE__, __func__, fmt, ##__VA_ARGS__)
 #define fatal(fmt, ...)                                                        \
     do {                                                                       \
         log(FATAL, __LINE__, __func__, fmt, ##__VA_ARGS__);                    \
@@ -35,11 +34,6 @@ void log(int level, const int line, const char *func, const char *fmt...);
     do {                                                                       \
         if ((condition))                                                       \
             warn(__VA_ARGS__);                                                 \
-    } while (0)
-#define errorif(condition, ...)                                                \
-    do {                                                                       \
-        if ((condition))                                                       \
-            error(__VA_ARGS__);                                                \
     } while (0)
 #define fatalif(condition, ...)                                                \
     do {                                                                       \

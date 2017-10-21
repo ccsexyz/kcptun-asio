@@ -30,16 +30,14 @@ static const char *getLevelString(int level) {
         return "INFO";
     case WARN:
         return "WARN";
-    case ERROR:
-        return "ERROR";
     default:
         return "FATAL";
     }
 }
 
-__thread time_t savedSec;
-__thread char savedSecStr[128];
-__thread char *usecStr;
+static time_t savedSec;
+static char savedSecStr[128];
+static char *usecStr;
 
 void log(int level, const int line, const char *func, const char *fmt...) {
     if (level < loglevel) {

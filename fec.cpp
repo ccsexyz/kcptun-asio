@@ -26,7 +26,7 @@
 
 #include "fec.h"
 #include "encoding.h"
-#include <err.h>
+//#include <err.h>
 #include <iostream>
 #include <stdexcept>
 #include "utils.h"
