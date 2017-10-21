@@ -1,24 +1,70 @@
-# kcptun-asio
+Name 
+====
 
-一个基于 ASIO/C++11 实现的 kcptun,与 [kcptun(golang)](https://github.com/xtaci/kcptun) 完全兼容  
+kcptun-asio -- A Secure Tunnel Based On KCP with N:M Multiplexing  
+kcptun-asio is based on C++11 and Asio, fully compatible with [kcptun(go)](https://github.com/xtaci/kcptun)  
 
-# 目前进度  
+Synopsis
+========
 
-* kcp 协议数据收发  
-* kcptun 支持的所有加密方式(aes*/xor/xtea/none/cast5/blowfish/twofish/3des/salsa20)  
-* smux 多路复用  
-* snappy 流数据压缩与解压缩,依赖 [snappy](https://github.com/google/snappy),数据帧格式 [frame_format](https://github.com/google/snappy/blob/master/framing_format.txt)    
-* FEC,主要实现代码来自 [libkcp](https://github.com/xtaci/libkcp)   
+```
+$ ./kcptun_client -l :6666 -r xx:xx:xx:xx:yy --key password --crypt aes --mtu 1200 --ds 20 --ps 10 --nocomp
+$ ./kcptun_server -l :7777 -t xx:xx:xx:xx:yy --key password --crypt aes --mtu 1200 --ds 20 --ps 10 --nocomp
+```
 
-客户端和服务端均已实现,能够与现有的kcptun(go)完全兼容   
+Features
+========
 
-# TODO  
+* reliable data transfering based on kcp protocol  
+* support aes*/xor/xtea/none/cast5/blowfish/twofish/3des/salsa20 encryption  
+* multiplexing  
+* snappy streaming compression and decompression,based on [google/snappy](https://github.com/google/snappy).The data frame format is [frame_format](https://github.com/google/snappy/blob/master/framing_format.txt)  
+* forward error correction   
 
-* ~~实现服务端逻辑~~  
-* ~~实现命令行参数解析和 json 配置文件读取~~  
-* ~~实现 FEC~~   
-* ~~实现 snappy 数据流压缩~~  
-* ~~实现更多的加密方式~~  
-* ~~实现 smux keepalive~~  
-* 性能优化  
-* 完善 smux  
+Build
+=====
+
+Prerequisites
+-------------
+
+1. [asio](https://github.com/chriskohlhoff/asio)
+2. [cryptopp](https://github.com/weidai11/cryptopp)
+3. [snappy](https://github.com/google/snappy)
+
+Unix-like system
+----------------
+1. Get the newest code  
+You should clone from github directly and update the submodules.
+```
+$ git clone https://github.com/ccsexyz/kcptun-asio.git  
+$ cd kcptun-asio  
+$ git submodule update --init --recursive
+```
+2. Build libcryptopp.a  
+```
+$ cd cryptopp
+$ make clean 
+$ make libcryptopp.a  
+```
+3. Build libsnappy.a
+```
+$ cd snappy
+$ cmake .
+$ make 
+```
+4. Build kcptun_client & kcptun_server  
+```
+$ cmake .
+$ make  
+```
+
+odd Windows
+-----------
+
+Fuck MSVC.
+ 
+TODO   
+====
+
+* performance optimization(memory optimization & CPU optimization)   
+* improve smux   

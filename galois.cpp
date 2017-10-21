@@ -28,9 +28,9 @@
 #include <stdexcept>
 
 extern const int fieldSize;
-extern byte mulTable[256][256];
-extern byte logTable[];
-extern byte expTable[];
+extern "C" byte mulTable[256][256];
+extern "C" byte logTable[];
+extern "C" byte expTable[];
 
 byte galAdd(byte a, byte b) { return a ^ b; }
 
