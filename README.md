@@ -33,29 +33,13 @@ Prerequisites
 
 Unix-like system
 ----------------
-1. Get the newest code  
-You should clone from github directly and update the submodules.
+1. Get the latest code  
 ```
 $ git clone https://github.com/ccsexyz/kcptun-asio.git  
-$ cd kcptun-asio  
-$ git submodule update --init --recursive
 ```
-2. Build libcryptopp.a  
+2. Run build.sh
 ```
-$ cd cryptopp
-$ make clean 
-$ make libcryptopp.a  
-```
-3. Build libsnappy.a
-```
-$ cd snappy
-$ cmake .
-$ make 
-```
-4. Build kcptun_client & kcptun_server  
-```
-$ cmake .
-$ make  
+$ ./build.sh  
 ```
 
 odd Windows
