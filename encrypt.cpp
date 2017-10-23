@@ -176,26 +176,26 @@ public:
 std::unique_ptr<BaseDecEncrypter> getDecEncrypter(const std::string &method,
                                                   const std::string &pwd) {
     if (method == "aes-128") {
-        return std::move(std::make_unique<DecEncrypter<AES, 16, 16>>(pwd));
+        return std::move(my_make_unique<DecEncrypter<AES, 16, 16>>(pwd));
     } else if (method == "aes-192") {
-        return std::move(std::make_unique<DecEncrypter<AES, 24, 16>>(pwd));
+        return std::move(my_make_unique<DecEncrypter<AES, 24, 16>>(pwd));
     } else if (method == "none") {
-        return std::move(std::make_unique<NoneDecEncrypter>());
+        return std::move(my_make_unique<NoneDecEncrypter>());
     } else if (method == "xor") {
-        return std::move(std::make_unique<SimpleXorDecEncrypter>(pwd));
+        return std::move(my_make_unique<SimpleXorDecEncrypter>(pwd));
     } else if (method == "3des") {
-        return std::move(std::make_unique<DecEncrypter<DES_EDE3, 24, 8>>(pwd));
+        return std::move(my_make_unique<DecEncrypter<DES_EDE3, 24, 8>>(pwd));
     } else if (method == "blowfish") {
-        return std::move(std::make_unique<DecEncrypter<Blowfish, 32, 8>>(pwd));
+        return std::move(my_make_unique<DecEncrypter<Blowfish, 32, 8>>(pwd));
     } else if (method == "twofish") {
-        return std::move(std::make_unique<DecEncrypter<Twofish, 32, 16>>(pwd));
+        return std::move(my_make_unique<DecEncrypter<Twofish, 32, 16>>(pwd));
     } else if (method == "salsa20") {
-        return std::move(std::make_unique<DecEncrypter<Salsa20, 32, 8>>(pwd));
+        return std::move(my_make_unique<DecEncrypter<Salsa20, 32, 8>>(pwd));
     } else if (method == "xtea") {
-        return std::move(std::make_unique<DecEncrypter<XTEA, 16, 8>>(pwd));
+        return std::move(my_make_unique<DecEncrypter<XTEA, 16, 8>>(pwd));
     } else if (method == "cast5") {
-        return std::move(std::make_unique<DecEncrypter<CAST128, 16, 8>>(pwd));
+        return std::move(my_make_unique<DecEncrypter<CAST128, 16, 8>>(pwd));
     } else {
-        return std::move(std::make_unique<DecEncrypter<AES, 32, 16>>(pwd));
+        return std::move(my_make_unique<DecEncrypter<AES, 32, 16>>(pwd));
     }
 }

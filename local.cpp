@@ -24,9 +24,10 @@ void Local::run() {
             fec_in->async_input(buf, len, handler);
         };
     }
+    auto inb = in;
     auto dec = getAsyncDecrypter(
         getDecEncrypter(Crypt, pbkdf2(Key)),
-        [inb(in)](char *buf, std::size_t len, Handler handler) {
+        [inb](char *buf, std::size_t len, Handler handler) {
             auto n = nonce_size + crc_size;
             buf += n;
             len -= n;

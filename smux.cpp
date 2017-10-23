@@ -251,7 +251,9 @@ void smux::destroy() {
 
 smux_sess::smux_sess(asio::io_service &io_service, uint32_t id, uint8_t version,
                      std::weak_ptr<smux> sm)
-    : service_(io_service), id_(id), version_(version), sm_(sm) {}
+    : service_(io_service), id_(id), version_(version), sm_(sm) {
+        info("smux session created!");
+    }
 
 void smux_sess::destroy() {
     destroy_ = true;
@@ -342,6 +344,8 @@ void smux_sess::async_read_some(char *buf, std::size_t len, Handler handler) {
     return;
 }
 
+static Buffers smux_sess_buffers(4120);
+
 void smux_sess::async_write(char *buf, std::size_t len, Handler handler) {
     if (destroy_) {
         if (handler) {
@@ -357,9 +361,15 @@ void smux_sess::async_write(char *buf, std::size_t len, Handler handler) {
         return;
     }
     auto f = frame{version_, cmdPsh, static_cast<uint16_t>(len), id_};
+    auto data = smux_sess_buffers.get();
     f.marshal(data);
     memcpy(data + headerSize, buf, len);
-    s->async_write(data, len + headerSize, handler);
+    s->async_write(data, len + headerSize, [handler, data](std::error_code ec, std::size_t sz){
+        smux_sess_buffers.push_back(data);
+        if (handler) {
+            handler(ec, sz);
+        }
+    });
 }
 
 smux_sess::~smux_sess() {
@@ -367,6 +377,7 @@ smux_sess::~smux_sess() {
     if (s) {
         s->async_write_frame(frame{version_, cmdFin, 0, id_}, nullptr);
     }
+    info("smux session destroyed!");
 }
 
 void smux::async_write_frame(frame f, Handler handler) {

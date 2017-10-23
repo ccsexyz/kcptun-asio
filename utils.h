@@ -39,29 +39,24 @@
 enum { nonce_size = 16, crc_size = 4 };
 enum { mtu_limit = 1500 };
 
-#if __cplusplus < 201402L
 // support make_unique in c++ 11
-namespace std {
 template <typename T, typename... Args>
-inline typename enable_if<!is_array<T>::value, unique_ptr<T>>::type
-make_unique(Args &&... args) {
-    return unique_ptr<T>(new T(std::forward<Args>(args)...));
+inline typename std::enable_if<!std::is_array<T>::value, std::unique_ptr<T>>::type
+my_make_unique(Args &&... args) {
+    return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
 }
 
 template <typename T>
-inline typename enable_if<is_array<T>::value && extent<T>::value == 0,
-                          unique_ptr<T>>::type
-make_unique(size_t size) {
-    using U = typename remove_extent<T>::type;
-    return unique_ptr<T>(new U[size]());
+inline typename std::enable_if<std::is_array<T>::value && std::extent<T>::value == 0,
+std::unique_ptr<T>>::type
+my_make_unique(size_t size) {
+    using U = typename std::remove_extent<T>::type;
+    return std::unique_ptr<T>(new U[size]());
 }
 
 template <typename T, typename... Args>
-typename enable_if<extent<T>::value != 0, void>::type
-make_unique(Args &&...) = delete;
-}
-
-#endif
+typename std::enable_if<std::extent<T>::value != 0, void>::type
+my_make_unique(Args &&...) = delete;
 
 using Handler = std::function<void(std::error_code, std::size_t)>;
 using OutputHandler = std::function<void(char *, std::size_t, Handler)>;
@@ -173,6 +168,13 @@ private:
     std::function<void()> functor_;
 };
 
+class ConstructCaller final : clean_ {
+public:
+    ConstructCaller(std::function<void()> &&functor) {
+        functor();
+    }
+};
+
 class AsyncReadWriter {
 public:
     virtual ~AsyncReadWriter() = default;
@@ -224,41 +226,27 @@ static inline const char *get_bool_str(bool b) {
 
 class Buffers final {
 public:
-    Buffers(std::size_t n = 2048) : n(n) {}
+    explicit Buffers(std::size_t n = 2048) : n(n) {}
     ~Buffers() {
         for (auto &buf : all_bufs_) {
             free(buf);
         }
     }
-    void push_back(char *buf) {
-        bufs_.insert(buf);
-        auto s1 = bufs_.size();
-        auto s2 = all_bufs_.size();
-        if(s1 * 4 > s2 * 3 && s2 > 16) {
-            std::vector<char *> v;
-            auto it = 0;
-            for(auto buf : bufs_) {
-                if(++it > s1 / 2) {
-                    break;
-                }
-                v.push_back(buf);
-            }
-            for(auto buf : v) {
-                bufs_.erase(buf);
-                all_bufs_.erase(buf);
-                free(buf);
-            }
-        }
+    Buffers(const Buffers &b) {
+        n = b.n;
     }
-    char *get() {
-        for(auto buf : bufs_) {
-            bufs_.erase(buf);
-            return buf;
-        }
-        char *buf = static_cast<char *>(malloc(n));
-        all_bufs_.insert(buf);
-        return buf;
+    Buffers &operator=(const Buffers &b) {
+        n = b.n;
+        return *this;
     }
+
+    void reset(std::size_t n2) {
+        n = n2;
+    }
+
+    void push_back(char *buf);
+    char *get();
+
     std::size_t capacity() const {
         return all_bufs_.size();
     }
@@ -271,5 +259,27 @@ private:
     std::unordered_set<char *> bufs_;
     std::unordered_set<char *> all_bufs_;
 };
+
+class kvar final {
+public:
+    explicit kvar(const std::string &name);
+    ~kvar();
+
+    void add(int i) {
+        (*p) += i;
+    }
+    void sub(int i) {
+        (*p) -= i;
+    }
+    int get() {
+        return *p;
+    }
+
+private:
+    int *p;
+    std::string name_;
+};
+
+void printKvars();
 
 #endif // KCPTUN_UTILS_H

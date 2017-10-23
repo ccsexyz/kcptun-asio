@@ -1,5 +1,6 @@
 #include "config.h"
-#include "json.h"
+#include "rapidjson.h"
+#include "document.h"
 #include "utils.h"
 
 std::string LocalAddr = ":12948";
@@ -28,7 +29,7 @@ std::string LogFile;
 int Interval = 40;
 std::string ConfigFilePath;
 
-using json = nlohmann::json;
+using namespace rapidjson;
 
 void parse_command_lines(int argc, char **argv) {
     std::vector<std::string> cmdlines;
@@ -94,35 +95,46 @@ void parse_command_lines(int argc, char **argv) {
     if(jsonstr.empty()) {
         return;
     }
-    auto j = json::parse(jsonstr);
-    using json_type = decltype(j);
-    if(j.is_null() || (!j.is_object())) {
+
+    Document d;
+    d.Parse(jsonstr.data());
+
+    if (d.IsNull() || !d.IsObject()) {
         return;
     }
-    for(auto it = j.cbegin(); it != j.cend(); ++it) {
-        auto key = it.key();
-        auto value = it.value();
-        key = "--" + key;
-        auto fit = handlers.find(key);
-        if(fit == handlers.end()) {
+
+    for(auto &m : d.GetObject()) {
+        if (!m.name.IsString()) {
             continue;
+        }
+        std::string key = m.name.GetString();
+        auto &value = m.value;
+        key = "-" + key;
+        auto fit = handlers.find(key);
+        if (fit == handlers.end()) {
+            key = "-" + key;
+            fit = handlers.find(key);
+            if (fit == handlers.end()) {
+                continue;
+            }
         }
         auto handler = fit->second;
-        if(!handler) {
+        if (!handler) {
             continue;
         }
-        if(value.is_boolean() && value.get<bool>()) {
+        if (value.IsBool() && value.GetBool()) {
             handler();
-        } else if(value.is_string()) {
-            s = value.get<std::string>();
+        } else if (value.IsString()) {
+            s = value.GetString();
             handler();
-        } else if(value.is_number_unsigned()) {
-            auto number = int(value.get<uint32_t>());
+        } else if (value.IsNumber()) {
+            auto number = int(value.GetInt());
             s = std::to_string(number);
             handler();
         }
         s = "";
     }
+
     return;
 }
 

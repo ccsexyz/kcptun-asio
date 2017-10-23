@@ -4,7 +4,7 @@
 
 AsyncFECInputer::AsyncFECInputer(OutputHandler o)
     : AsyncInOutputer(o),
-      fec_(std::make_unique<FEC>(
+      fec_(my_make_unique<FEC>(
           FEC::New(3 * (DataShard + ParityShard), DataShard, ParityShard))) {}
 
 void AsyncFECInputer::output_recovered(
@@ -67,11 +67,28 @@ void AsyncFECInputer::async_input(char *buf, std::size_t len, Handler handler) {
     }
 }
 
+static Buffers fec_buffers(2048);
+
+static Buffers fec_header_buffers;
+
+static char *get_fec_header() {
+    static ConstructCaller nopCaller([](){
+        fec_header_buffers.reset(fecHeaderSize*ParityShard);
+    });
+    return fec_header_buffers.get();
+}
+
+static void push_fec_header_back(char *buf) {
+    fec_header_buffers.push_back(buf);
+}
+
+
+
 AsyncFECOutputer::AsyncFECOutputer(OutputHandler o)
     : AsyncInOutputer(o),
-      fec_(std::make_unique<FEC>(
+      fec_(my_make_unique<FEC>(
           FEC::New(3 * (DataShard + ParityShard), DataShard, ParityShard))),
-      shards_(std::make_unique<std::vector<row_type>>(DataShard + ParityShard,
+      shards_(my_make_unique<std::vector<row_type>>(DataShard + ParityShard,
                                                       nullptr)) {}
 
 void AsyncFECOutputer::async_input(char *buf, std::size_t len,
@@ -95,9 +112,9 @@ void AsyncFECOutputer::async_input(char *buf, std::size_t len,
     }
     pkt_idx_ = 0;
     fec_->Encode(*shards_);
-    char *buffer = (char *)malloc(2048);
+    char *buffer = fec_buffers.get();
     std::vector<row_type> shards(ParityShard, nullptr);
-    char *fec_headers = (char *)malloc(fecHeaderSize * ParityShard);
+    char *fec_headers = get_fec_header();
     for (int i = 0; i < ParityShard; i++) {
         shards[i] = (*shards_)[DataShard + i];
         (*shards_)[DataShard + i] = nullptr;
@@ -107,8 +124,8 @@ void AsyncFECOutputer::async_input(char *buf, std::size_t len,
            [this, len, handler, buffer, fec_headers, shards](std::error_code ec,
                                                              std::size_t) {
                DeferCaller defer([buffer, fec_headers, ec, handler, len] {
-                   free(buffer);
-                   free(fec_headers);
+                   fec_buffers.push_back(buffer);
+                   push_fec_header_back(fec_headers);
                    if (handler) {
                        handler(ec, len);
                    }

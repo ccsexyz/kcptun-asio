@@ -42,7 +42,6 @@ private:
     void async_choose_local(std::function<void(std::shared_ptr<Local>)> f);
 
 private:
-    char buf_[65536];
     asio::io_service &service_;
     asio::ip::tcp::socket socket_;
     asio::ip::udp::endpoint target_endpoint_;

@@ -20,7 +20,7 @@ public:
 private:
     uint8_t version_;
     uint32_t id_;
-    char data[4120];
+    // char data[4120];
     bool destroy_ = false;
     asio::io_service &service_;
     Task read_task_;
