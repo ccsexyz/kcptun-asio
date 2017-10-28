@@ -32,7 +32,7 @@ public:
 private:
     bool valid_ = false;
     Task task_;
-    std::size_t off_;
+    std::size_t off_ = 0;
     asio::io_service &service_;
     char chunk_[snappy_max_block_size + snappy_checksum_size +
                 snappy_header_len];
@@ -50,7 +50,7 @@ private:
     asio::io_service &service_;
     char buf_[snappy_max_block_size + snappy_checksum_size + snappy_header_len +
               snappy_magic_head_len];
-    std::size_t off_;
+    std::size_t off_ = 0;
     Task task_;
 };
 
