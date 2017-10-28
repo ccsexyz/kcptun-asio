@@ -20,6 +20,7 @@ Features
 * multiplexing  
 * snappy streaming compression and decompression,based on [google/snappy](https://github.com/google/snappy).The data frame format is [frame_format](https://github.com/google/snappy/blob/master/framing_format.txt)  
 * forward error correction   
+* lower resource consumption  
 
 Build
 =====
@@ -51,4 +52,4 @@ TODO
 ====
 
 * performance optimization(memory optimization & CPU optimization)   
-* improve smux   
+* ~~improve smux~~   

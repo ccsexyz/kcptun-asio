@@ -32,6 +32,7 @@
 #include <vector>
 #include <chrono>
 #include <map>
+#include <array>
 
 #include "encoding.h"
 #include "logger.h"
@@ -281,5 +282,67 @@ private:
 };
 
 void printKvars();
+
+void run_kvar_printer(asio::io_service &service);
+
+struct buffer final {
+public:
+    buffer();
+    ~buffer();
+
+    buffer(const buffer &) = delete;
+
+    buffer &operator =(buffer &) = delete;
+
+    buffer(buffer &&other) noexcept;
+
+    std::size_t size() {
+        return len;
+    }
+
+    std::size_t aval() {
+        return cap - off - len;
+    }
+
+    char *start() {
+        return buf + off;
+    }
+
+    char *end() {
+        return buf + off + len;
+    }
+
+    void append(char *b, std::size_t sz) {
+        memcpy(end(), b, sz);
+        len += sz;
+    }
+
+    void retrieve(char *b, std::size_t sz) {
+        memcpy(b, start(), sz);
+        off += sz;
+        len -= sz;
+    }
+
+    char *buf = nullptr;
+    std::size_t off = 0;
+    std::size_t len = 0;
+    std::size_t cap = 0;
+
+private:
+    void init();
+};
+
+class LinearBuffer final : public clean_ {
+public:
+    LinearBuffer();
+    ~LinearBuffer();
+
+    std::size_t size();
+    void append(char *buf, std::size_t len);
+    void retrieve(char *buf, std::size_t len);
+
+private:
+    std::deque<buffer> bufs_;
+};
 
 #endif // KCPTUN_UTILS_H

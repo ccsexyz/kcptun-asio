@@ -27,6 +27,7 @@ extern int SockBuf;
 extern int KeepAlive;
 extern std::string LogFile;
 extern int Interval;
+extern bool Kvar;
 
 void parse_command_lines(int argc, char **argv);
 

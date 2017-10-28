@@ -59,26 +59,27 @@ public:
     }
     void encrypt(char *dst, std::size_t dlen, char *src,
                  std::size_t slen) override {
-        typename CFB_Mode<T>::Encryption enc;
-        enc.SetKeyWithIV((const byte *)(pass_.c_str()), keyLen, iv, ivLen);
+        enc_.SetKeyWithIV((const byte *)(pass_.c_str()), keyLen, iv, ivLen);
         ArraySource((byte *)dst, dlen, true,
                     new StreamTransformationFilter(
-                        enc, new ArraySink((byte *)src, slen)));
+                        enc_, new ArraySink((byte *)src, slen)));
         return;
     }
 
     void decrypt(char *dst, std::size_t dlen, char *src,
                  std::size_t slen) override {
-        typename CFB_Mode<T>::Decryption dec;
-        dec.SetKeyWithIV((const byte *)(pass_.c_str()), keyLen, iv, ivLen);
+        dec_.SetKeyWithIV((const byte *)(pass_.c_str()), keyLen, iv, ivLen);
         ArraySource((byte *)dst, dlen, true,
                     new StreamTransformationFilter(
-                        dec, new ArraySink((byte *)src, slen)));
+                        dec_, new ArraySink((byte *)src, slen)));
         return;
     }
 
 private:
     std::string pass_;
+    typename CFB_Mode<T>::Encryption enc_;
+    typename CFB_Mode<T>::Decryption dec_;
+
 };
 
 void put_random_bytes(char *buffer, std::size_t length) {
@@ -94,8 +95,7 @@ public:
     }
     void encrypt(char *dst, std::size_t dlen, char *src,
                  std::size_t slen) override {
-        Salsa20::Encryption enc;
-        enc.SetKeyWithIV((const byte *)(pass_.c_str()), keyLen,
+        enc_.SetKeyWithIV((const byte *)(pass_.c_str()), keyLen,
                          (const byte *)src, ivLen);
         memmove(dst, src, ivLen);
         dst += ivLen;
@@ -104,14 +104,13 @@ public:
         slen -= ivLen;
         ArraySource((byte *)dst, dlen, true,
                     new StreamTransformationFilter(
-                        enc, new ArraySink((byte *)src, slen)));
+                        enc_, new ArraySink((byte *)src, slen)));
         return;
     }
 
     void decrypt(char *dst, std::size_t dlen, char *src,
                  std::size_t slen) override {
-        Salsa20::Decryption dec;
-        dec.SetKeyWithIV((const byte *)(pass_.c_str()), keyLen,
+        dec_.SetKeyWithIV((const byte *)(pass_.c_str()), keyLen,
                          (const byte *)src, ivLen);
         memmove(dst, src, ivLen);
         dst += ivLen;
@@ -120,12 +119,14 @@ public:
         slen -= ivLen;
         ArraySource((byte *)dst, dlen, true,
                     new StreamTransformationFilter(
-                        dec, new ArraySink((byte *)src, slen)));
+                        dec_, new ArraySink((byte *)src, slen)));
         return;
     }
 
 private:
     std::string pass_;
+    Salsa20::Encryption enc_;
+    Salsa20::Decryption dec_;
 };
 
 class NoneDecEncrypter final : public BaseDecEncrypter {

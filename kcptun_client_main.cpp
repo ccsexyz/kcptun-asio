@@ -45,6 +45,9 @@ int main(int argc, char **argv) {
     }
     std::make_shared<kcptun_client>(io_service, local_endpoint, remote_endpoint)
         ->run();
+    if (Kvar) {
+        run_kvar_printer(io_service);
+    }
     io_service.run();
     return 0;
 }

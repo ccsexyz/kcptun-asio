@@ -249,18 +249,21 @@ void smux::destroy() {
     }
 }
 
+static kvar smux_sess_kvar("smux_sess");
+
 smux_sess::smux_sess(asio::io_service &io_service, uint32_t id, uint8_t version,
                      std::weak_ptr<smux> sm)
     : service_(io_service), id_(id), version_(version), sm_(sm) {
+        smux_sess_kvar.add(1);
         info("smux session created!");
     }
 
 void smux_sess::destroy() {
     destroy_ = true;
     auto read_handler = read_task_.handler;
-    auto input_handler = input_task_.handler;
+    auto input_handler = input_handler_;
     read_task_.reset();
-    input_task_.reset();
+    input_handler_ = nullptr;
     if (read_handler) {
         read_handler(std::error_code(1, std::generic_category()), 0);
     }
@@ -276,7 +279,6 @@ void smux_sess::input(char *buf, std::size_t len, Handler handler) {
         }
         return;
     }
-    input_task_.reset();
     if (read_task_.check()) {
         if (len <= read_task_.len) {
             memcpy(read_task_.buf, buf, len);
@@ -286,27 +288,37 @@ void smux_sess::input(char *buf, std::size_t len, Handler handler) {
                 read_handler(std::error_code(0, std::generic_category()), len);
             }
             if (handler) {
-                handler(std::error_code(0, std::generic_category()), 0);
+                handler(std::error_code(0, std::generic_category()), len);
             }
         } else {
             memcpy(read_task_.buf, buf, read_task_.len);
             auto read_handler = read_task_.handler;
             auto read_len = read_task_.len;
             read_task_.reset();
-            len -= read_len;
-            buf += read_len;
-            input_task_.buf = buf;
-            input_task_.len = len;
-            input_task_.handler = handler;
+            input_buffer_.append(buf+read_len, len-read_len);
             if (read_handler) {
                 read_handler(std::error_code(0, std::generic_category()),
                              read_len);
             }
+            if (handler) {
+                handler(std::error_code(0, std::generic_category()), len);
+            }
         }
     } else {
-        input_task_.buf = buf;
-        input_task_.len = len;
-        input_task_.handler = handler;
+        input_buffer_.append(buf, len);
+        if (handler) {
+            if (input_buffer_.size() > 4096 * 32) {
+                input_handler_ = [len, handler](std::error_code ec, std::size_t) {
+                    if (ec) {
+                        handler(ec, 0);
+                    } else {
+                        handler(ec, len);
+                    }
+                };
+            } else {
+                handler(std::error_code(0, std::generic_category()), len);
+            }
+        }
     }
     return;
 }
@@ -318,28 +330,26 @@ void smux_sess::async_read_some(char *buf, std::size_t len, Handler handler) {
         }
         return;
     }
-    if (input_task_.len == 0) {
+    auto input_buffer_size = input_buffer_.size();
+    if (input_buffer_size == 0) {
         read_task_.buf = buf;
         read_task_.len = len;
         read_task_.handler = handler;
-    } else if (len < input_task_.len) {
-        memcpy(buf, input_task_.buf, len);
-        input_task_.len -= len;
-        input_task_.buf += len;
-        if (handler) {
-            handler(std::error_code(0, std::generic_category()), len);
-        }
     } else {
-        memcpy(buf, input_task_.buf, input_task_.len);
-        auto input_len = input_task_.len;
-        auto input_handler = input_task_.handler;
-        input_task_.reset();
+        auto retrieve_size = input_buffer_size;
+        if (len < retrieve_size) {
+            retrieve_size = len;
+        }
+        input_buffer_.retrieve(buf, retrieve_size);
+        assert(input_buffer_size-retrieve_size == input_buffer_.size());
         if (handler) {
-            handler(std::error_code(0, std::generic_category()), input_len);
+            handler(std::error_code(0, std::generic_category()), retrieve_size);
         }
-        if (input_handler) {
-            input_handler(std::error_code(0, std::generic_category()), 0);
-        }
+    }
+    if (input_handler_ && input_buffer_.size() < 4096 * 4) {
+        auto input_handler = input_handler_;
+        input_handler_ = nullptr;
+        input_handler(std::error_code(0, std::generic_category()), 0);
     }
     return;
 }
@@ -373,6 +383,7 @@ void smux_sess::async_write(char *buf, std::size_t len, Handler handler) {
 }
 
 smux_sess::~smux_sess() {
+    smux_sess_kvar.sub(1);
     auto s = sm_.lock();
     if (s) {
         s->async_write_frame(frame{version_, cmdFin, 0, id_}, nullptr);

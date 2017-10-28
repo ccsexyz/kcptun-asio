@@ -20,11 +20,11 @@ public:
 private:
     uint8_t version_;
     uint32_t id_;
-    // char data[4120];
     bool destroy_ = false;
     asio::io_service &service_;
     Task read_task_;
-    Task input_task_;
+    Handler input_handler_;
+    LinearBuffer input_buffer_;
     std::weak_ptr<smux> sm_;
 };
 
