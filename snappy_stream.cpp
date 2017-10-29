@@ -3,7 +3,7 @@
 //
 
 #include "snappy_stream.h"
-#include "snappy/snappy.h"
+#include "snappy.h"
 
 static const unsigned char magic_head[] = {0xff, 0x06, 0x00, 0x00, 0x73,
                                            0x4e, 0x61, 0x50, 0x70, 0x59};

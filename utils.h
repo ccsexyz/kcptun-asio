@@ -33,6 +33,7 @@
 #include <chrono>
 #include <map>
 #include <array>
+#include "gflags/gflags.h"
 
 #include "encoding.h"
 #include "logger.h"

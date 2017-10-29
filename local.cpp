@@ -13,7 +13,7 @@ Local::Local(asio::io_service &io_service, asio::ip::udp::endpoint ep)
 
 void Local::run() {
     auto self = shared_from_this();
-    auto fec = DataShard > 0 && ParityShard > 0;
+    auto fec = FLAGS_datashard > 0 && FLAGS_parityshard > 0;
 
     in = [this](char *buf, std::size_t len, Handler handler) {
         sess_->async_input(buf, len, handler);
@@ -26,7 +26,7 @@ void Local::run() {
     }
     auto inb = in;
     auto dec = getAsyncDecrypter(
-        getDecEncrypter(Crypt, pbkdf2(Key)),
+        getDecEncrypter(FLAGS_crypt, pbkdf2(FLAGS_key)),
         [inb](char *buf, std::size_t len, Handler handler) {
             auto n = nonce_size + crc_size;
             buf += n;
@@ -40,7 +40,7 @@ void Local::run() {
     out = [this](char *buf, std::size_t len, Handler handler) {
         usock_->async_write(buf, len, handler);
     };
-    auto enc = getAsyncEncrypter(getDecEncrypter(Crypt, pbkdf2(Key)), out);
+    auto enc = getAsyncEncrypter(getDecEncrypter(FLAGS_crypt, pbkdf2(FLAGS_key)), out);
     out = [this, enc](char *buf, std::size_t len, Handler handler) {
         char *buffer = buffers_.get();
         auto n = nonce_size + crc_size;
@@ -69,7 +69,7 @@ void Local::run() {
     out2 = [this](char *buf, std::size_t len, Handler handler) {
         sess_->async_write(buf, len, handler);
     };
-    if (!NoComp) {
+    if (!FLAGS_nocomp) {
         auto snappy_writer =
             std::make_shared<snappy_stream_writer>(service_, out2);
         out2 = [this, snappy_writer](char *buf, std::size_t len,
@@ -83,7 +83,7 @@ void Local::run() {
     in2 = [this](char *buf, std::size_t len, Handler handler) {
         smux_->async_input(buf, len, handler);
     };
-    if (!NoComp) {
+    if (!FLAGS_nocomp) {
         auto snappy_reader =
             std::make_shared<snappy_stream_reader>(service_, in2);
         in2 = [this, snappy_reader](char *buf, std::size_t len,
@@ -136,12 +136,12 @@ void Local::async_connect(
 bool Local::is_destroyed() const { return smux_->is_destroyed(); }
 
 void Local::run_scavenger() {
-    if (ScavengeTTL <= 0) {
+    if (FLAGS_scavengettl <= 0) {
         return;
     }
     auto self = shared_from_this();
     auto timer = std::make_shared<asio::high_resolution_timer>(
-        service_, std::chrono::seconds(ScavengeTTL));
+        service_, std::chrono::seconds(FLAGS_scavengettl));
     timer->async_wait([this, timer, self](const std::error_code &) {
         if (smux_) {
             smux_->destroy();

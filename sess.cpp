@@ -16,11 +16,11 @@ void Session::run() {
     kcp_ = ikcp_create(convid_, static_cast<void *>(this));
     kcp_->output = Session::output_wrapper;
     kcp_->stream = 1;
-    ikcp_nodelay(kcp_, NoDelay, Interval, Resend, Nc);
-    ikcp_wndsize(kcp_, SndWnd, RcvWnd);
-    ikcp_setmtu(kcp_, Mtu);
+    ikcp_nodelay(kcp_, FLAGS_nodelay, FLAGS_interval, FLAGS_resend, FLAGS_nc);
+    ikcp_wndsize(kcp_, FLAGS_sndwnd, FLAGS_rcvwnd);
+    ikcp_setmtu(kcp_, FLAGS_mtu);
     timer_ = std::make_shared<asio::high_resolution_timer>(service_);
-    run_timer(std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(Interval));
+    run_timer(std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(FLAGS_interval));
     // run_peeksize_checker();
 }
 
@@ -63,7 +63,7 @@ void Session::input(char *buffer, std::size_t len) {
     if (rtask_.check()) {
         update();
     } else {
-        run_timer(std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(Interval));
+        run_timer(std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(FLAGS_interval));
     }
     return;
 }
@@ -110,7 +110,7 @@ void Session::async_write(char *buffer, std::size_t len, Handler handler) {
         handler(std::error_code(0, std::generic_category()),
                 static_cast<std::size_t>(n));
     }
-    run_timer(std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(Interval));
+    run_timer(std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(FLAGS_interval));
 }
 
 int Session::output_wrapper(const char *buffer, int len, struct IKCPCB *kcp,

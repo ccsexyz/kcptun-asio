@@ -9,8 +9,8 @@ kcptun_client::kcptun_client(asio::io_service &io_service,
       local_(std::make_shared<Local>(io_service, target_endpoint)) {}
 
 void kcptun_client::run() {
-    locals_.reserve(Conn);
-    for (int i = 0; i < Conn; i++) {
+    locals_.reserve(FLAGS_conn);
+    for (int i = 0; i < FLAGS_conn; i++) {
         auto l = std::make_shared<Local>(service_, target_endpoint_);
         l->run();
         locals_.emplace_back(l);
@@ -21,7 +21,7 @@ void kcptun_client::run() {
 
 void kcptun_client::async_choose_local(
     std::function<void(std::shared_ptr<Local>)> f) {
-    auto i = rand() % Conn;
+    auto i = rand() % FLAGS_conn;
     auto local = locals_[i];
     if ((!local) || local->is_destroyed()) {
         local = std::make_shared<Local>(service_, target_endpoint_);

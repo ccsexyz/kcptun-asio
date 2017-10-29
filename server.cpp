@@ -8,7 +8,7 @@ Server::Server(asio::io_service &io_service, OutputHandler handler)
     : AsyncInOutputer(handler), service_(io_service) {}
 
 void Server::run(AcceptHandler accept_handler, uint32_t convid) {
-    auto fec = DataShard > 0 && ParityShard > 0;
+    auto fec = FLAGS_datashard > 0 && FLAGS_parityshard > 0;
 
     in = [this](char *buf, std::size_t len, Handler handler) {
         sess_->async_input(buf, len, handler);
@@ -35,7 +35,7 @@ void Server::run(AcceptHandler accept_handler, uint32_t convid) {
     out2 = [this](char *buf, std::size_t len, Handler handler) {
         sess_->async_write(buf, len, handler);
     };
-    if (!NoComp) {
+    if (!FLAGS_nocomp) {
         auto snappy_writer =
             std::make_shared<snappy_stream_writer>(service_, out2);
         out2 = [this, snappy_writer](char *buf, std::size_t len,
@@ -50,7 +50,7 @@ void Server::run(AcceptHandler accept_handler, uint32_t convid) {
     in2 = [this](char *buf, std::size_t len, Handler handler) {
         smux_->async_input(buf, len, handler);
     };
-    if (!NoComp) {
+    if (!FLAGS_nocomp) {
         auto snappy_reader =
             std::make_shared<snappy_stream_reader>(service_, in2);
         in2 = [this, snappy_reader](char *buf, std::size_t len,

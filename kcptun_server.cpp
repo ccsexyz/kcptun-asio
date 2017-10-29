@@ -11,8 +11,8 @@ kcptun_server::kcptun_server(asio::io_service &io_service,
       usocket_(io_service, local_endpoint) {}
 
 void kcptun_server::run() {
-    isfec_ = DataShard > 0 && ParityShard > 0;
-    dec_or_enc_ = getDecEncrypter(Crypt, pbkdf2(Key));
+    isfec_ = FLAGS_datashard > 0 && FLAGS_parityshard > 0;
+    dec_or_enc_ = getDecEncrypter(FLAGS_crypt, pbkdf2(FLAGS_key));
     do_receive();
 }
 

@@ -11,11 +11,11 @@ void smux::do_keepalive_checker() {
     std::weak_ptr<smux> weaksmux = shared_from_this();
     if (!keepalive_check_timer_) {
         keepalive_check_timer_ = std::make_shared<asio::high_resolution_timer>(
-            service_, std::chrono::seconds(KeepAlive * 3));
+            service_, std::chrono::seconds(FLAGS_keepalive * 3));
     } else {
         keepalive_check_timer_->expires_at(
             keepalive_check_timer_->expires_at() +
-            std::chrono::seconds(KeepAlive * 3));
+            std::chrono::seconds(FLAGS_keepalive * 3));
     }
     keepalive_check_timer_->async_wait(
         [this, weaksmux](const std::error_code &) {
@@ -36,11 +36,11 @@ void smux::do_keepalive_sender() {
     std::weak_ptr<smux> weaksmux = shared_from_this();
     if (!keepalive_sender_timer_) {
         keepalive_sender_timer_ = std::make_shared<asio::high_resolution_timer>(
-            service_, std::chrono::seconds(KeepAlive));
+            service_, std::chrono::seconds(FLAGS_keepalive));
     } else {
         keepalive_sender_timer_->expires_at(
             keepalive_sender_timer_->expires_at() +
-            std::chrono::seconds(KeepAlive));
+            std::chrono::seconds(FLAGS_keepalive));
     }
     keepalive_sender_timer_->async_wait(
         [this, weaksmux](const std::error_code &) {

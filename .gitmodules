@@ -10,3 +10,6 @@
 [submodule "rapidjson"]
 	path = rapidjson
 	url = https://github.com/Tencent/rapidjson
+[submodule "gflags"]
+	path = gflags
+	url = https://github.com/gflags/gflags

@@ -3,7 +3,14 @@ N=1
 if [ $# -gt 0  ]; then
     N=$1
 fi
-git submodule update --init --recursive 
+git submodule update --init --recursive
+
+cd gflags
+rm CMakeCache.txt
+cmake .
+make clean
+make "-j$N"
+cd ..
 
 cd cryptopp 
 make clean 
