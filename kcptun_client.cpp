@@ -71,11 +71,11 @@ kcptun_client_session::kcptun_client_session(
 
 kcptun_client_session::~kcptun_client_session() {
     kcptun_client_session_kvar.sub(1);
-    info("stream closed!");
+    LOG(INFO) << "stream closed!";
 }
 
 void kcptun_client_session::run() {
-    info("stream opened!");
+    LOG(INFO) << "stream opened!";
     do_pipe1();
     do_pipe2();
 }

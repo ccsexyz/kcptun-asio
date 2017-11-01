@@ -5,27 +5,14 @@ if [ $# -gt 0  ]; then
 fi
 git submodule update --init --recursive
 
-cd gflags
-rm CMakeCache.txt
-cmake .
+cd cryptopp
 make clean
-make "-j$N"
-cd ..
-
-cd cryptopp 
-make clean 
 make libcryptopp.a "-j$N"
-cd .. 
-
-cd snappy 
-rm CMakeCache.txt
-cmake .
-make clean 
-make "-j$N"
 cd ..
 
 rm CMakeCache.txt 
 cmake .
 make clean 
-make "-j$N"
+make kcptun_client "-j$N"
+make kcptun_server "-j$N"
 

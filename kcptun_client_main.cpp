@@ -26,5 +26,6 @@ int main(int argc, char **argv) {
     }
     io_service.run();
     gflags::ShutDownCommandLineFlags();
+    google::ShutdownGoogleLogging();
     return 0;
 }

@@ -65,7 +65,7 @@ void printKvars() {
             continue;
         }
         auto value = *(kvar.second);
-        info("name:%s\tvalue:%d\n", name.data(), value);
+        LOG(INFO) << "name:" << name << " value:" << value;
     }
 }
 

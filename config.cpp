@@ -40,7 +40,8 @@ DEFINE_bool(kvar, false, "run default kvar printer");
 using namespace rapidjson;
 
 void print_configs() {
-    info("listening on: %s\n"
+    char buffer[1024];
+    snprintf(buffer, 1024, "listening on: %s\n"
                  "encryption: %s\n"
                  "nodelay parameters: %d %d %d %d\n"
                  "remote address: %s\n"
@@ -64,16 +65,20 @@ void print_configs() {
          FLAGS_sndwnd, FLAGS_rcvwnd, get_bool_str(!FLAGS_nocomp), FLAGS_mtu,
          FLAGS_datashard, FLAGS_parityshard, get_bool_str(FLAGS_acknodelay), FLAGS_dscp, FLAGS_sockbuf,
          FLAGS_keepalive, FLAGS_conn, FLAGS_autoexpire, FLAGS_scavengettl);
+    LOG(INFO) << buffer;
 }
 
 void parse_command_lines(int argc, char **argv) {
+    google::LogToStderr();
     DeferCaller defer([] {
         process_configs();
-        setLogFile(FLAGS_logfile);
+        google::SetLogDestination(0, FLAGS_logfile.c_str());
         print_configs();
     });
 
     gflags::ParseCommandLineFlags(&argc, &argv, true);
+    FLAGS_colorlogtostderr = true;
+    google::InitGoogleLogging(argv[0]);
 
     auto string_alias_check = [](std::string &var, const std::string &alias) {
         if (alias.empty()) {

@@ -255,7 +255,7 @@ smux_sess::smux_sess(asio::io_service &io_service, uint32_t id, uint8_t version,
                      std::weak_ptr<smux> sm)
     : service_(io_service), id_(id), version_(version), sm_(sm) {
         smux_sess_kvar.add(1);
-        info("smux session created!");
+        LOG(INFO) << "smux session created!";
     }
 
 void smux_sess::destroy() {
@@ -388,7 +388,7 @@ smux_sess::~smux_sess() {
     if (s) {
         s->async_write_frame(frame{version_, cmdFin, 0, id_}, nullptr);
     }
-    info("smux session destroyed!");
+    LOG(INFO) << "smux session destroyed!";
 }
 
 void smux::async_write_frame(frame f, Handler handler) {

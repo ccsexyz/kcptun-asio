@@ -34,9 +34,9 @@
 #include <map>
 #include <array>
 #include "gflags/gflags.h"
+#include "glog/logging.h"
 
 #include "encoding.h"
-#include "logger.h"
 
 enum { nonce_size = 16, crc_size = 4 };
 enum { mtu_limit = 1500 };
