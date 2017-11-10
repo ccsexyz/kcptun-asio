@@ -177,6 +177,42 @@ public:
     }
 };
 
+class Destroy : public clean_ {
+public:
+    ~Destroy() {
+        destroy();
+    }
+    void call_on_destroy(const std::function<void()> &h) {
+        destroy_handlers_.push_back(h);
+    }
+    void call_on_destroy(std::function<void()> &&h) {
+        destroy_handlers_.emplace_back(h);
+    }
+    void destroy() {
+        if (destroy_) {
+            return;
+        }
+        destroy_ = true;
+        call_this_on_destroy();
+        for (auto &h : destroy_handlers_) {
+            if (h) {
+                h();
+            }
+        }
+        destroy_handlers_.clear();
+    }
+    bool is_destroyed() const {
+        return destroy_;
+    }
+
+protected:
+    virtual void call_this_on_destroy() {}
+
+private:
+    bool destroy_ = false;
+    std::vector<std::function<void()>> destroy_handlers_;
+};
+
 class AsyncReadWriter {
 public:
     virtual ~AsyncReadWriter() = default;
@@ -280,6 +316,19 @@ public:
 private:
     int *p;
     std::string name_;
+};
+
+class kvar_ : public clean_ {
+public:
+    explicit kvar_(kvar &kv) : v_(kv) {
+        v_.add(1);
+    }
+    ~kvar_() {
+        v_.sub(1);
+    }
+
+private:
+    kvar &v_;
 };
 
 void printKvars();

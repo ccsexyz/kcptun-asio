@@ -4,12 +4,15 @@
 #include "smux.h"
 #include "snappy_stream.h"
 
+static kvar local_kvar("Local");
+
 Local::Local(asio::io_service &io_service, asio::ip::udp::endpoint ep)
     : service_(io_service), ep_(ep),
       usock_(std::make_shared<UsocketReadWriter>(
           asio::ip::udp::socket(
               io_service, asio::ip::udp::endpoint(asio::ip::udp::v4(), 0)),
-          ep)) {}
+          ep)), kvar_(local_kvar) {
+}
 
 void Local::run() {
     auto self = shared_from_this();
@@ -78,6 +81,9 @@ void Local::run() {
         };
     }
     smux_ = std::make_shared<smux>(service_, out2);
+    smux_->call_on_destroy([self, this]{
+        destroy();
+    });
     smux_->run();
 
     in2 = [this](char *buf, std::size_t len, Handler handler) {
@@ -133,7 +139,7 @@ void Local::async_connect(
     smux_->async_connect(handler);
 }
 
-bool Local::is_destroyed() const { return smux_->is_destroyed(); }
+//bool Local::is_destroyed() const { return smux_->is_destroyed(); }
 
 void Local::run_scavenger() {
     if (FLAGS_scavengettl <= 0) {
@@ -147,4 +153,29 @@ void Local::run_scavenger() {
             smux_->destroy();
         }
     });
+}
+
+void Local::call_this_on_destroy() {
+    auto self = shared_from_this();
+
+    Destroy::call_this_on_destroy();
+
+    if (sess_) {
+        auto sess = sess_;
+        sess_ = nullptr;
+        sess->destroy();
+    }
+
+    if (smux_) {
+        auto smux = smux_;
+        smux_ = nullptr;
+        smux->destroy();
+    }
+
+    usock_ = nullptr;
+
+    in = nullptr;
+    out = nullptr;
+    in2 = nullptr;
+    out2 = nullptr;
 }

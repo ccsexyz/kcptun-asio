@@ -5,7 +5,9 @@
 #include "server.h"
 
 class kcptun_server_session final
-    : public std::enable_shared_from_this<kcptun_server_session> {
+    : public std::enable_shared_from_this<kcptun_server_session>,
+      public kvar_,
+      public Destroy {
 public:
     kcptun_server_session(asio::io_service &io_service,
                           std::shared_ptr<smux_sess> sess,
@@ -15,7 +17,7 @@ public:
 private:
     void do_pipe1();
     void do_pipe2();
-    void destroy();
+    void call_this_on_destroy() override;
 
 private:
     char buf1_[4096];
@@ -45,7 +47,7 @@ private:
     asio::ip::udp::endpoint ep_;
     asio::ip::tcp::endpoint target_endpoint_;
     std::unique_ptr<BaseDecEncrypter> dec_or_enc_;
-    std::map<asio::ip::udp::endpoint, std::shared_ptr<Server>> servers_;
+    std::map<asio::ip::udp::endpoint, std::weak_ptr<Server>> servers_;
     Buffers buffers_;
 };
 

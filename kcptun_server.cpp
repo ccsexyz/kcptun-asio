@@ -39,8 +39,9 @@ void kcptun_server::do_receive() {
             auto it = servers_.find(ep_);
             std::shared_ptr<Server> server;
             if (it != servers_.end()) {
-                server = it->second;
-            } else {
+                server = it->second.lock();
+            }
+            if (!server) {
                 uint32_t convid;
                 if (isfec_) {
                     uint16_t fec_type;
@@ -55,30 +56,30 @@ void kcptun_server::do_receive() {
                 }
                 asio::ip::udp::endpoint ep = ep_;
                 server = std::make_shared<Server>(
-                    service_, [this, self, ep](char *buf, std::size_t len,
-                                               Handler handler) {
-                        char *buffer = buffers_.get();
-                        memcpy(buffer + nonce_size + crc_size, buf, len);
-                        auto crc = crc32c_ieee(0, (byte *)buf, len);
-                        encode32u((byte *)(buffer + nonce_size), crc);
-                        dec_or_enc_->encrypt(
-                            buffer, len + nonce_size + crc_size, buffer,
-                            len + nonce_size + crc_size);
-                        usocket_.async_send_to(
-                            asio::buffer(buffer, len + nonce_size + crc_size),
-                            ep, [handler, this, self, len,
-                                 buffer](std::error_code ec, std::size_t) {
-                                buffers_.push_back(buffer);
-                                if (handler) {
-                                    handler(ec, len);
-                                }
-                            });
-                    });
+                        service_, [this, self, ep](char *buf, std::size_t len,
+                                                   Handler handler) {
+                            char *buffer = buffers_.get();
+                            memcpy(buffer + nonce_size + crc_size, buf, len);
+                            auto crc = crc32c_ieee(0, (byte *)buf, len);
+                            encode32u((byte *)(buffer + nonce_size), crc);
+                            dec_or_enc_->encrypt(
+                                    buffer, len + nonce_size + crc_size, buffer,
+                                    len + nonce_size + crc_size);
+                            usocket_.async_send_to(
+                                    asio::buffer(buffer, len + nonce_size + crc_size),
+                                    ep, [handler, this, self, len,
+                                            buffer](std::error_code ec, std::size_t) {
+                                        buffers_.push_back(buffer);
+                                        if (handler) {
+                                            handler(ec, len);
+                                        }
+                                    });
+                        });
                 server->run(
-                    [this, self](std::shared_ptr<smux_sess> sess) {
-                        accept_handler(sess);
-                    },
-                    convid);
+                        [this, self](std::shared_ptr<smux_sess> sess) {
+                            accept_handler(sess);
+                        },
+                        convid);
                 servers_.emplace(ep, server);
             }
             server->async_input(
@@ -87,11 +88,13 @@ void kcptun_server::do_receive() {
         });
 }
 
+static kvar server_session_kvar("kcptun_server_session");
+
 kcptun_server_session::kcptun_server_session(
     asio::io_service &io_service, std::shared_ptr<smux_sess> sess,
     asio::ip::tcp::endpoint target_endpoint)
     : service_(io_service), sess_(sess), socket_(io_service),
-      target_endpoint_(target_endpoint) {}
+      target_endpoint_(target_endpoint), kvar_(server_session_kvar) {}
 
 void kcptun_server_session::run() {
     auto self = shared_from_this();
@@ -102,13 +105,6 @@ void kcptun_server_session::run() {
         do_pipe1();
         do_pipe2();
     });
-}
-
-void kcptun_server_session::destroy() {
-    socket_.close();
-    if(sess_) {
-        sess_->destroy();
-    }
 }
 
 void kcptun_server_session::do_pipe1() {
@@ -149,4 +145,15 @@ void kcptun_server_session::do_pipe2() {
                               do_pipe2();
                           });
     });
+}
+
+void kcptun_server_session::call_this_on_destroy() {
+    auto self = shared_from_this();
+
+    Destroy::call_this_on_destroy();
+
+    socket_.close();
+    if(sess_) {
+        sess_->destroy();
+    }
 }

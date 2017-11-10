@@ -59,14 +59,16 @@ kvar::~kvar() {
 }
 
 void printKvars() {
+    std::stringstream log_stream;
     for (auto &kvar : kvars) {
         auto name = kvar.first;
         if (kvar.second == nullptr) {
             continue;
         }
         auto value = *(kvar.second);
-        LOG(INFO) << "name:" << name << " value:" << value;
+        log_stream << name << ":" << value << "\t";
     }
+    LOG(INFO) << log_stream.str();
 }
 
 void run_kvar_printer(asio::io_service &service) {

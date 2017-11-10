@@ -10,7 +10,9 @@ class snappy_stream_writer;
 class snappy_stream_reader;
 
 class kcptun_client_session final
-    : public std::enable_shared_from_this<kcptun_client_session> {
+    : public std::enable_shared_from_this<kcptun_client_session>,
+      public kvar_,
+      public Destroy {
 public:
     kcptun_client_session(asio::io_service &io_service,
                           std::shared_ptr<asio::ip::tcp::socket> sock,
@@ -21,7 +23,7 @@ public:
 private:
     void do_pipe1();
     void do_pipe2();
-    void destroy();
+    void call_this_on_destroy() override;
 
 private:
     char buf1_[4096];
@@ -46,8 +48,7 @@ private:
     asio::ip::tcp::socket socket_;
     asio::ip::udp::endpoint target_endpoint_;
     asio::ip::tcp::acceptor acceptor_;
-    std::vector<std::shared_ptr<Local>> locals_;
-    std::shared_ptr<Local> local_;
+    std::vector<std::weak_ptr<Local>> locals_;
 };
 
 #endif

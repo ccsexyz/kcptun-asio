@@ -2,8 +2,11 @@
 #include "encrypt.h"
 #include "fec.h"
 
+static kvar sess_kvar("Session");
+
 Session::Session(asio::io_service &service, uint32_t convid, OutputHandler o)
-    : AsyncInOutputer(o), service_(service), convid_(convid) {}
+    : AsyncInOutputer(o), service_(service), convid_(convid), kvar_(sess_kvar) {
+}
 
 Session::~Session() {
     TRACE
@@ -146,5 +149,28 @@ void Session::update() {
     if (rtask_handler) {
         rtask_handler(std::error_code(0, std::generic_category()),
                       static_cast<std::size_t>(n));
+    }
+}
+
+void Session::call_this_on_destroy() {
+    auto self = shared_from_this();
+
+    Destroy::call_this_on_destroy();
+
+    if (timer_) {
+        timer_->cancel();
+        timer_ = nullptr;
+    }
+
+    if (rtask_.check()) {
+        auto rtask_handler = rtask_.handler;
+        rtask_.reset();
+        rtask_handler(std::error_code(1, std::generic_category()), 0);
+    }
+
+    if (wtask_.check()) {
+        auto wtask_handler = wtask_.handler;
+        wtask_.reset();
+        wtask_handler(std::error_code(1, std::generic_category()), 0);
     }
 }

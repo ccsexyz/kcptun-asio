@@ -20,7 +20,7 @@ void smux::do_keepalive_checker() {
     keepalive_check_timer_->async_wait(
         [this, weaksmux](const std::error_code &) {
             auto s = weaksmux.lock();
-            if (!s || destroy_) {
+            if (!s || is_destroyed()) {
                 return;
             }
             if (data_ready_) {
@@ -45,7 +45,7 @@ void smux::do_keepalive_sender() {
     keepalive_sender_timer_->async_wait(
         [this, weaksmux](const std::error_code &) {
             auto s = weaksmux.lock();
-            if (!s || destroy_) {
+            if (!s || is_destroyed()) {
                 return;
             }
             async_write_frame(frame{VERSION, cmdNop, 0, 0}, nullptr);
@@ -58,7 +58,7 @@ void smux::do_stat_checker() {
     auto stat_timer = std::make_shared<asio::high_resolution_timer>(
         service_, std::chrono::seconds(1));
     stat_timer->async_wait([this, self, stat_timer](const std::error_code &) {
-        if (destroy_) {
+        if (is_destroyed()) {
             return;
         }
         do_stat_checker();
@@ -67,7 +67,7 @@ void smux::do_stat_checker() {
 
 void smux::async_input(char *buf, std::size_t len, Handler handler) {
     data_ready_ = true;
-    if (destroy_) {
+    if (is_destroyed()) {
         if (handler) {
             handler(std::error_code(1, std::generic_category()), 0);
         }
@@ -108,7 +108,7 @@ void smux::async_input(char *buf, std::size_t len, Handler handler) {
 
 void smux::async_read_full(char *buf, std::size_t len, Handler handler) {
     read_task_.reset();
-    if (destroy_) {
+    if (is_destroyed()) {
         if (handler) {
             handler(std::error_code(1, std::generic_category()), 0);
         }
@@ -225,7 +225,7 @@ void smux::handle_frame(frame f) {
 }
 
 void smux::async_write(char *buf, std::size_t len, Handler handler) {
-    if (destroy_) {
+    if (is_destroyed()) {
         if (handler) {
             handler(std::error_code(1, std::generic_category()), 0);
         }
@@ -235,42 +235,13 @@ void smux::async_write(char *buf, std::size_t len, Handler handler) {
     try_output(buf, len, handler);
 }
 
-void smux::destroy() {
-    destroy_ = true;
-    auto read_handler = read_task_.handler;
-    auto input_handler = input_task_.handler;
-    read_task_.reset();
-    input_task_.reset();
-    if (read_handler) {
-        read_handler(std::error_code(1, std::generic_category()), 0);
-    }
-    if (input_handler) {
-        input_handler(std::error_code(1, std::generic_category()), 0);
-    }
-}
-
 static kvar smux_sess_kvar("smux_sess");
 
 smux_sess::smux_sess(asio::io_service &io_service, uint32_t id, uint8_t version,
                      std::weak_ptr<smux> sm)
-    : service_(io_service), id_(id), version_(version), sm_(sm) {
-        smux_sess_kvar.add(1);
+    : service_(io_service), id_(id), version_(version), sm_(sm), kvar_(smux_sess_kvar) {
         LOG(INFO) << "smux session created!";
     }
-
-void smux_sess::destroy() {
-    destroy_ = true;
-    auto read_handler = read_task_.handler;
-    auto input_handler = input_handler_;
-    read_task_.reset();
-    input_handler_ = nullptr;
-    if (read_handler) {
-        read_handler(std::error_code(1, std::generic_category()), 0);
-    }
-    if (input_handler) {
-        input_handler(std::error_code(1, std::generic_category()), 0);
-    }
-}
 
 void smux_sess::input(char *buf, std::size_t len, Handler handler) {
     if (destroy_) {
@@ -383,7 +354,6 @@ void smux_sess::async_write(char *buf, std::size_t len, Handler handler) {
 }
 
 smux_sess::~smux_sess() {
-    smux_sess_kvar.sub(1);
     auto s = sm_.lock();
     if (s) {
         s->async_write_frame(frame{version_, cmdFin, 0, id_}, nullptr);
@@ -391,9 +361,27 @@ smux_sess::~smux_sess() {
     LOG(INFO) << "smux session destroyed!";
 }
 
+void smux_sess::call_this_on_destroy() {
+    auto self = shared_from_this();
+
+    Destroy::call_this_on_destroy();
+
+    destroy_ = true;
+    auto read_handler = read_task_.handler;
+    auto input_handler = input_handler_;
+    read_task_.reset();
+    input_handler_ = nullptr;
+    if (read_handler) {
+        read_handler(std::error_code(1, std::generic_category()), 0);
+    }
+    if (input_handler) {
+        input_handler(std::error_code(1, std::generic_category()), 0);
+    }
+}
+
 void smux::async_write_frame(frame f, Handler handler) {
     TRACE
-    if (destroy_) {
+    if (is_destroyed()) {
         TRACE
         if (handler) {
             handler(std::error_code(1, std::generic_category()), 0);
@@ -418,7 +406,7 @@ void smux::async_connect(
     std::function<void(std::shared_ptr<smux_sess>)> connectHandler) {
     TRACE
     auto self = shared_from_this();
-    if (destroy_) {
+    if (is_destroyed()) {
         if (connectHandler) {
             connectHandler(nullptr);
         }
@@ -470,4 +458,21 @@ void smux::try_write_task() {
                }
                try_write_task();
            });
+}
+
+void smux::call_this_on_destroy() {
+    auto self = shared_from_this();
+
+    Destroy::call_this_on_destroy();
+
+    auto read_handler = read_task_.handler;
+    auto input_handler = input_task_.handler;
+    read_task_.reset();
+    input_task_.reset();
+    if (read_handler) {
+        read_handler(std::error_code(1, std::generic_category()), 0);
+    }
+    if (input_handler) {
+        input_handler(std::error_code(1, std::generic_category()), 0);
+    }
 }

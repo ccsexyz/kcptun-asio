@@ -7,15 +7,19 @@
 class smux;
 
 class smux_sess final : public std::enable_shared_from_this<smux_sess>,
-                        public AsyncReadWriter {
+                        public AsyncReadWriter,
+                        public kvar_,
+                        public Destroy {
 public:
     smux_sess(asio::io_service &io_service, uint32_t id, uint8_t version,
               std::weak_ptr<smux> sm);
     ~smux_sess();
-    void destroy();
     void input(char *buf, std::size_t len, Handler handler);
     void async_read_some(char *buf, std::size_t len, Handler handler) override;
     void async_write(char *buf, std::size_t len, Handler handler) override;
+
+private:
+    void call_this_on_destroy() override;
 
 private:
     uint8_t version_;
@@ -30,14 +34,13 @@ private:
 
 class smux final : public std::enable_shared_from_this<smux>,
                    public AsyncReadWriter,
-                   public AsyncInOutputer {
+                   public AsyncInOutputer,
+                   public Destroy {
 public:
     smux(asio::io_service &io_service, OutputHandler handler = nullptr)
         : AsyncInOutputer(handler), service_(io_service) {}
 
     void run();
-    void destroy();
-    bool is_destroyed() const { return destroy_; }
     void async_input(char *buf, std::size_t len, Handler handler) override;
     void set_accept_handler(
         std::function<void(std::shared_ptr<smux_sess>)> handler) {
@@ -60,11 +63,11 @@ private:
     void async_read_full(char *buf, std::size_t len, Handler handler);
     void try_output(char *buf, std::size_t len, Handler handler);
     void try_write_task();
+    void call_this_on_destroy() override;
 
 private:
     bool writing_ = false;
     bool data_ready_ = true;
-    bool destroy_ = false;
     char frame_header_[headerSize];
     char frame_data_[65536];
     uint16_t nextStreamID_ = 1;

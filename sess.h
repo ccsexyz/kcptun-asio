@@ -1,7 +1,3 @@
-//
-// Created by ccsexyz on 17-5-3.
-//
-
 #ifndef KCPTUN_SESS_H
 #define KCPTUN_SESS_H
 
@@ -15,7 +11,9 @@ class FEC;
 
 class Session : public std::enable_shared_from_this<Session>,
                 public AsyncReadWriter,
-                public AsyncInOutputer {
+                public AsyncInOutputer,
+                public kvar_,
+                public Destroy {
 public:
     Session(asio::io_service &service, uint32_t convid, OutputHandler o);
     void run();
@@ -33,6 +31,7 @@ public:
     void async_input(char *buffer, std::size_t len, Handler handler) override;
     void async_read_some(char *buffer, std::size_t len, Handler handler) override;
     void async_write(char *buffer, std::size_t len, Handler handler) override;
+    void call_this_on_destroy() override;
 
 private:
     asio::io_service &service_;
