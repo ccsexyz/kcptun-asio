@@ -32,35 +32,50 @@ char *Buffers::get() {
     return buf;
 }
 
-static std::unordered_map<std::string, int *> kvars;
-static std::unordered_map<std::string, int> kvarsRef;
+static std::unique_ptr<std::unordered_map<std::string, int *>> kvars;
+static std::unique_ptr<std::unordered_map<std::string, int>> kvarsRef;
 
 kvar::kvar(const std::string &name) {
-    auto it = kvars.find(name);
-    if (it == kvars.end()) {
+    if (!kvars) {
+        kvars = my_make_unique<std::unordered_map<std::string, int *>>();
+    }
+    if (!kvarsRef) {
+        kvarsRef = my_make_unique<std::unordered_map<std::string, int>>();
+    }
+    auto it = kvars->find(name);
+    if (it == kvars->end()) {
         p = new int(0);
-        kvars.insert(std::make_pair(name, p));
-        kvarsRef.insert(std::make_pair(name, 1));
+        kvars->insert(std::make_pair(name, p));
+        kvarsRef->insert(std::make_pair(name, 1));
     } else {
-        p = kvars[name];
-        kvarsRef[name]++;
+        p = (*kvars)[name];
+        (*kvarsRef)[name]++;
     }
     name_ = name;
 }
 
 kvar::~kvar() {
-    kvarsRef[name_]--;
-    if (kvarsRef[name_] > 0) {
+    if (!kvarsRef || !kvars) {
         return;
     }
-    kvars.erase(name_);
-    kvarsRef.erase(name_);
+    auto it = kvarsRef->find(name_);
+    if (it == kvarsRef->end()) {
+        return;
+    }
+    if (--((*kvarsRef)[name_]) > 0) {
+        return;
+    }
+    kvars->erase(name_);
+    kvarsRef->erase(name_);
     delete p;
 }
 
 void printKvars() {
+    if (!kvars) {
+        return;
+    }
     std::stringstream log_stream;
-    for (auto &kvar : kvars) {
+    for (auto &kvar : *kvars) {
         auto name = kvar.first;
         if (kvar.second == nullptr) {
             continue;
