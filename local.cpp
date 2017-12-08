@@ -7,11 +7,10 @@
 static kvar local_kvar("Local");
 
 Local::Local(asio::io_service &io_service, asio::ip::udp::endpoint ep)
-    : service_(io_service), ep_(ep),
-      usock_(std::make_shared<UsocketReadWriter>(
-          asio::ip::udp::socket(
-              io_service, asio::ip::udp::endpoint(asio::ip::udp::v4(), 0)),
-          ep)), kvar_(local_kvar) {
+    : service_(io_service), ep_(ep), kvar_(local_kvar) {
+    auto usocket = asio::ip::udp::socket(io_service);
+    usocket.connect(ep_);
+    usock_ = std::make_shared<UsocketReadWriter>(std::move(usocket));
 }
 
 void Local::run() {

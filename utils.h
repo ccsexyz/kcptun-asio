@@ -243,14 +243,21 @@ public:
     UsocketReadWriter(asio::ip::udp::socket &&usocket,
                       asio::ip::udp::endpoint ep)
         : usocket_(std::move(usocket)), ep_(ep) {}
+    UsocketReadWriter(asio::ip::udp::socket &&usocket)
+        : usocket_(std::move(usocket)), connected_(true) {}
     void async_read_some(char *buf, std::size_t len, Handler handler) override {
         usocket_.async_receive(asio::buffer(buf, len), handler);
     }
     void async_write(char *buf, std::size_t len, Handler handler) override {
-        usocket_.async_send_to(asio::buffer(buf, len), ep_, handler);
+        if (connected_) {
+            usocket_.async_send(asio::buffer(buf, len), handler);
+        } else {
+            usocket_.async_send_to(asio::buffer(buf, len), ep_, handler);
+        }
     }
 
 private:
+    bool connected_ = false;
     asio::ip::udp::socket usocket_;
     asio::ip::udp::endpoint ep_;
 };

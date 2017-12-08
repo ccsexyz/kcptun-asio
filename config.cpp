@@ -196,7 +196,11 @@ std::string get_host(const std::string &addr) {
     if (pos == std::string::npos) {
         std::terminate();
     }
-    return addr.substr(0, pos);
+    auto host = addr.substr(0, pos);
+    if (host == "") {
+        host = "0.0.0.0";
+    }
+    return host;
 }
 
 std::string get_port(const std::string &addr) {

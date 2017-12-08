@@ -12,12 +12,12 @@ int main(int argc, char **argv) {
     {
         asio::ip::udp::resolver resolver(io_service);
         remote_endpoint = asio::ip::udp::endpoint(*resolver.resolve(
-            {asio::ip::udp::v4(), get_host(FLAGS_remoteaddr), get_port(FLAGS_remoteaddr)}));
+            {get_host(FLAGS_remoteaddr), get_port(FLAGS_remoteaddr)}));
     }
     {
         asio::ip::tcp::resolver resolver(io_service);
         local_endpoint = asio::ip::tcp::endpoint(*resolver.resolve(
-            {asio::ip::tcp::v4(), get_host(FLAGS_localaddr), get_port(FLAGS_localaddr)}));
+            {get_host(FLAGS_localaddr), get_port(FLAGS_localaddr)}));
     }
     std::make_shared<kcptun_client>(io_service, local_endpoint, remote_endpoint)
         ->run();
