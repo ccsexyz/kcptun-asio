@@ -108,33 +108,31 @@ void Session::async_read_some(char *buffer, std::size_t len, Handler handler) {
 }
 
 void Session::async_write(char *buffer, std::size_t len, Handler handler) {
-    auto n = ikcp_send(kcp_, buffer, int(len));
-    if (handler) {
-        handler(std::error_code(0, std::generic_category()),
-                static_cast<std::size_t>(n));
+    auto waitsnd = ikcp_waitsnd(kcp_);
+    if (waitsnd <= FLAGS_sndwnd * 2) {
+        auto n = ikcp_send(kcp_, buffer, int(len)); 
+        if (handler) {
+            handler(std::error_code(0, std::generic_category()),
+                    static_cast<std::size_t>(n));
+        }
+    } else {
+        wtasks_.push_back(Task{buffer, len, handler});
     }
-    run_timer(std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(FLAGS_interval));
+
+    update();
 }
 
 int Session::output_wrapper(const char *buffer, int len, struct IKCPCB *kcp,
-                            void *user) {
+                            void *user)
+{
     assert(user != nullptr);
     Session *sess = static_cast<Session *>(user);
     sess->output((char *)(buffer), static_cast<std::size_t>(len), nullptr);
+    sess->updateWrite();
     return 0;
 }
 
-void Session::update() {
-    DeferCaller defer([this]{
-        auto current = iclock();
-        auto next = ikcp_check(kcp_, current);
-        next -= current;
-        if(next == 0) {
-            next = 1;
-        }
-        // info("next = %u\n", next);
-        run_timer(std::chrono::high_resolution_clock::now()+std::chrono::milliseconds(next));
-    });
+void Session::updateRead() {
     ikcp_update(kcp_, iclock());
     if (!rtask_.check()) {
         return;
@@ -150,6 +148,36 @@ void Session::update() {
         rtask_handler(std::error_code(0, std::generic_category()),
                       static_cast<std::size_t>(n));
     }
+}
+
+void Session::updateWrite() {
+    while (ikcp_waitsnd(kcp_) < FLAGS_sndwnd * 2 && !wtasks_.empty()) {
+        auto task = wtasks_.front();
+        wtasks_.pop_front();
+        auto n = ikcp_send(kcp_, task.buf, int(task.len));
+        auto &handler = task.handler; 
+        if (handler) {
+            handler(std::error_code(0, std::generic_category()),
+                    static_cast<std::size_t>(n));
+        }
+    }
+}
+
+void Session::updateTimer() {
+    auto current = iclock();
+    auto next = ikcp_check(kcp_, current);
+    next -= current;
+    if(next <= 0) {
+        next = 1;
+    }
+    // info("next = %u\n", next);
+    run_timer(std::chrono::high_resolution_clock::now()+std::chrono::milliseconds(next));
+}
+
+void Session::update() {
+    updateRead();
+    updateWrite();
+    updateTimer();
 }
 
 void Session::call_this_on_destroy() {

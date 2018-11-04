@@ -24,6 +24,9 @@ private:
     static int output_wrapper(const char *buffer, int len, struct IKCPCB *kcp,
                               void *user);
     void update();
+    void updateRead();
+    void updateWrite();
+    void updateTimer();
     void run_peeksize_checker();
 
 public:
@@ -38,6 +41,7 @@ private:
     std::shared_ptr<asio::high_resolution_timer> timer_;
     Task rtask_;
     Task wtask_;
+    std::deque<Task> wtasks_;
 
 private:
     uint32_t convid_ = 0;
