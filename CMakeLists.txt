@@ -9,7 +9,6 @@ include_directories("${CMAKE_SOURCE_DIR}/rapidjson/include/rapidjson")
 include_directories("${CMAKE_SOURCE_DIR}/gflags/include")
 include_directories("${CMAKE_SOURCE_DIR}/snappy")
 
-set(gflags_DIR "${CMAKE_SOURCE_DIR}/gflags")
 add_subdirectory("glog")
 add_subdirectory("gflags")
 add_subdirectory("snappy")
