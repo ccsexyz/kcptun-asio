@@ -68,6 +68,130 @@ void print_configs() {
     LOG(INFO) << buffer;
 }
 
+static bool
+check_zero_cstr(const char *cstr)
+{
+    if (cstr == NULL || strlen(cstr) == 0) {
+        return true;
+    }
+    return false;
+}
+
+static void
+env_assign_bool(char *src, void *dst)
+{
+    *(bool *)dst = true;
+}
+
+static void
+env_assign_int32(char *src, void *dst)
+{
+    *(google::int32*)dst = std::atoi(src);
+}
+
+static void
+env_assign_string(char *src, void *dst)
+{
+    *(std::string *)dst = src;
+}
+
+static std::unordered_map<std::string, std::tuple<void *, std::function<void (char *, void *)>>> env_assigners = {
+    {"localaddr", std::make_tuple(&FLAGS_localaddr, env_assign_bool)},
+    {"remoteaddr", std::make_tuple(&FLAGS_remoteaddr, env_assign_string)},
+    {"targetaddr", std::make_tuple(&FLAGS_targetaddr, env_assign_string)},
+    {"key", std::make_tuple(&FLAGS_key, env_assign_string)},
+    {"crypt", std::make_tuple(&FLAGS_crypt, env_assign_string)},
+    {"logfile", std::make_tuple(&FLAGS_logfile, env_assign_string)},
+    {"mode", std::make_tuple(&FLAGS_mode, env_assign_string)},
+
+    {"conn", std::make_tuple(&FLAGS_conn, env_assign_int32)},
+    {"autoexpire", std::make_tuple(&FLAGS_autoexpire, env_assign_int32)},
+    {"mtu", std::make_tuple(&FLAGS_mtu, env_assign_int32)},
+    {"sndwnd", std::make_tuple(&FLAGS_sndwnd, env_assign_int32)},
+    {"rcvwnd", std::make_tuple(&FLAGS_rcvwnd, env_assign_int32)},
+    {"scavengettl", std::make_tuple(&FLAGS_scavengettl, env_assign_int32)},
+    {"datashard", std::make_tuple(&FLAGS_datashard, env_assign_int32)},
+    {"parityshard", std::make_tuple(&FLAGS_parityshard, env_assign_int32)},
+    {"nodelay", std::make_tuple(&FLAGS_nodelay, env_assign_int32)},
+    {"resend", std::make_tuple(&FLAGS_resend, env_assign_int32)},
+    {"nc", std::make_tuple(&FLAGS_nc, env_assign_int32)},
+    {"interval", std::make_tuple(&FLAGS_interval, env_assign_int32)},
+    {"sockbuf", std::make_tuple(&FLAGS_sockbuf, env_assign_int32)},
+    {"keepalive", std::make_tuple(&FLAGS_keepalive, env_assign_int32)},
+
+    {"nocomp", std::make_tuple(&FLAGS_nocomp, env_assign_bool)},
+    {"acknodelay", std::make_tuple(&FLAGS_acknodelay, env_assign_bool)},
+    {"kvar", std::make_tuple(&FLAGS_kvar, env_assign_bool)},
+};
+
+static void
+parse_plugin_option(char *plugin_option)
+{
+    char *key = strtok(plugin_option, "=");
+    if (check_zero_cstr(key)) {
+        return;
+    }
+    char *value = strtok(NULL, "=");
+
+    auto it = env_assigners.find(key);
+    if (it == env_assigners.end()) {
+        return;
+    }
+
+    void *dst = std::get<0>(it->second);
+    auto &caller = std::get<1>(it->second);
+    caller(value, dst);
+}
+
+static void
+parse_plugin_options(char *plugin_options)
+{
+    char *str = NULL;
+    std::vector<char *> option_strs;
+    // note: strtok isn't thread-safe, this function shouldn't
+    //       be used in multi-threaded environment
+    while ((str = strtok(plugin_options, ";")) != NULL) {
+        plugin_options = NULL;
+        option_strs.emplace_back(str);
+    }
+
+    for (auto str : option_strs) {
+        parse_plugin_option(str);
+    }
+}
+
+// for SIP003
+static void
+parse_config_from_env()
+{
+    const char *remote_host = std::getenv("SS_REMOTE_HOST");
+    const char *remote_port = std::getenv("SS_REMOTE_PORT");
+    const char *local_host = std::getenv("SS_LOCAL_HOST");
+    const char *local_port = std::getenv("SS_LOCAL_PORT");
+    char *plugin_options = std::getenv("SS_PLUGIN_OPTIONS");
+
+    bool has_zero_str = false;
+    has_zero_str |= check_zero_cstr(remote_host);
+    has_zero_str |= check_zero_cstr(remote_port);
+    has_zero_str |= check_zero_cstr(local_host);
+    has_zero_str |= check_zero_cstr(local_port);
+
+    if (has_zero_str) {
+        return;
+    }
+
+    FLAGS_remoteaddr = std::string(remote_host) + ":" + std::string(remote_port);
+    FLAGS_localaddr = std::string(local_host) + ":" + std::string(local_port);
+
+    if (check_zero_cstr(plugin_options)) {
+        return;
+    }
+
+    plugin_options = strdup(plugin_options);
+    parse_plugin_options(plugin_options);
+    free(plugin_options);
+}
+
 void parse_command_lines(int argc, char **argv) {
     google::LogToStderr();
     DeferCaller defer([] {
@@ -98,6 +222,8 @@ void parse_command_lines(int argc, char **argv) {
 
     integer_alias_check(FLAGS_parityshard, FLAGS_ps);
     integer_alias_check(FLAGS_datashard, FLAGS_ds);
+
+    parse_config_from_env();
 
     if (FLAGS_c.empty()) {
         return;

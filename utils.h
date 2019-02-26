@@ -11,6 +11,7 @@
 #include <assert.h>
 #include <cstdio>
 #include <cstdlib>
+#include <string.h>
 #include <deque>
 #include <fstream>
 #include <functional>
