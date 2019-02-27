@@ -54,21 +54,7 @@ kvar::kvar(const std::string &name) {
     name_ = name;
 }
 
-kvar::~kvar() {
-    if (!kvarsRef || !kvars) {
-        return;
-    }
-    auto it = kvarsRef->find(name_);
-    if (it == kvarsRef->end()) {
-        return;
-    }
-    if (--((*kvarsRef)[name_]) > 0) {
-        return;
-    }
-    kvars->erase(name_);
-    kvarsRef->erase(name_);
-    delete p;
-}
+kvar::~kvar() {}
 
 void printKvars() {
     if (!kvars) {
