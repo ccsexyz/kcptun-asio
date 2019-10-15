@@ -1,7 +1,3 @@
-//
-// Created by ccsexyz on 17-5-3.
-//
-
 #ifndef KCPTUN_SERVER_H
 #define KCPTUN_SERVER_H
 

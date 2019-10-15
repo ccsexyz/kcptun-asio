@@ -1,9 +1,6 @@
-//
-// Created by ccsexyz on 17-5-5.
-//
-
 #include "snappy_stream.h"
 #include "snappy.h"
+#include "encrypt.h"
 
 static const unsigned char magic_head[] = {0xff, 0x06, 0x00, 0x00, 0x73,
                                            0x4e, 0x61, 0x50, 0x70, 0x59};
@@ -25,7 +22,7 @@ void snappy_stream_writer::async_input(char *buf, std::size_t len,
         task_.handler = handler;
         handler = nullptr;
     }
-    auto chksum = crc32c_cast(0, (const unsigned char *)buf, len);
+    auto chksum = crc32c_cast((const unsigned char *)buf, len);
     encode32u((byte *)(buf_ + off_ + snappy_header_len), chksum);
     std::size_t compressed_length;
     char *payload = buf_ + off_ + snappy_header_len + snappy_checksum_size;
@@ -149,7 +146,7 @@ void snappy_stream_reader::async_input(char *buf, std::size_t len,
     decode32u((byte *)(chunk_ + snappy_header_len), &crc32_chksum_2);
     if (chunk_type == chunk_type_uncompressed_data) {
         uint32_t crc32_chksum =
-            crc32c_cast(0, (unsigned char *)(chunk_ + snappy_header_len +
+            crc32c_cast((unsigned char *)(chunk_ + snappy_header_len +
                                              snappy_checksum_size),
                         chunk_len - 4);
         if (crc32_chksum != crc32_chksum_2) {
@@ -187,7 +184,7 @@ void snappy_stream_reader::async_input(char *buf, std::size_t len,
                                       &uncompressed_length);
         snappy::RawUncompress(compressed, compressed_length, decode_buffer_);
         uint32_t crc32_chksum = crc32c_cast(
-            0, (unsigned char *)(decode_buffer_), uncompressed_length);
+            (unsigned char *)(decode_buffer_), uncompressed_length);
         if (crc32_chksum != crc32_chksum_2) {
             if (handler) {
                 handler(std::error_code(1, std::generic_category()), len);

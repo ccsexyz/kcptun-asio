@@ -57,4 +57,6 @@ getAsyncDecrypter(std::unique_ptr<BaseDecEncrypter> &&dec,
     return std::make_shared<AsyncDecrypter>(std::move(dec), handler);
 }
 
+uint32_t crc32c_cast(const unsigned char *buf, size_t len);
+
 #endif // SHADOWSOCKS_ASIO_ENCRYPT_H

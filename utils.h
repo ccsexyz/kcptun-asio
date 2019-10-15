@@ -1,7 +1,3 @@
-//
-// Created by ccsexyz on 17-5-3.
-//
-
 #ifndef KCPTUN_UTILS_H
 #define KCPTUN_UTILS_H
 
@@ -36,7 +32,7 @@
 #include <array>
 #include "gflags/gflags.h"
 #include "glog/logging.h"
-
+#include "zlib.h"
 #include "encoding.h"
 
 enum { nonce_size = 16, crc_size = 4 };
@@ -64,24 +60,31 @@ my_make_unique(Args &&...) = delete;
 using Handler = std::function<void(std::error_code, std::size_t)>;
 using OutputHandler = std::function<void(char *, std::size_t, Handler)>;
 
-static void itimeofday(long *sec, long *usec) {
-    struct timeval time;
-    auto now = std::chrono::system_clock::now();
-    auto ms = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count();
-    if (sec != nullptr) {
-        *sec = ms / 1000000;
+static inline uint64_t
+current_monotonic_usec()
+{
+    auto now = std::chrono::steady_clock::now();
+    auto us = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count();
+    return us;
+}
+
+static inline void
+itimeofday(long *sec, long *usec)
+{
+    auto us = current_monotonic_usec();
+    if (sec) {
+        *sec = us / 1000000;
     }
-    if (usec != nullptr) {
-        *usec = ms % 1000000;
+    if (usec) {
+        *usec = us % 1000000;
     }
 }
 
-static uint64_t iclock64(void) {
-    long s, u;
-    uint64_t value;
-    itimeofday(&s, &u);
-    value = ((uint64_t)s) * 1000 + (u / 1000);
-    return value;
+static inline uint64_t
+iclock64(void) {
+    auto us = current_monotonic_usec();
+    auto ms = us / 1000;
+    return ms;
 }
 
 static uint32_t iclock() { return (uint32_t)(iclock64() & 0xfffffffful); }
@@ -105,34 +108,10 @@ struct Task {
     bool check() { return buf != nullptr && len != 0; }
 };
 
-#define IEEEPOLY 0xedb88320
-#define CastagnoliPOLY 0x82f63b78
-
-static inline uint32_t crc32c_ieee(uint32_t crc, const unsigned char *buf,
-                                   size_t len) {
-    int k;
-
-    crc = ~crc;
-    while (len--) {
-        crc ^= *buf++;
-        for (k = 0; k < 8; k++)
-            crc = crc & 1 ? (crc >> 1) ^ IEEEPOLY : crc >> 1;
-    }
-    return ~crc;
-}
-
-static inline uint32_t crc32c_cast(uint32_t crc, const unsigned char *buf,
-                                   std::size_t len) {
-    int k;
-
-    crc = ~crc;
-    while (len--) {
-        crc ^= *buf++;
-        for (k = 0; k < 8; k++)
-            crc = crc & 1 ? (crc >> 1) ^ CastagnoliPOLY : crc >> 1;
-    }
-    crc = ~crc;
-    return (uint32_t)(crc >> 15 | crc << 17) + 0xa282ead8;
+static inline uint32_t
+crc32c_ieee(uint32_t crc, const unsigned char *buf, size_t len)
+{
+    return crc32(crc, (const Bytef *)buf, len);
 }
 
 static inline std::error_code errc(int c) {

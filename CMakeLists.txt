@@ -1,21 +1,21 @@
 cmake_minimum_required(VERSION 3.6)
 project(kcptun)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O2 -DASIO_STANDALONE")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
 include_directories("${CMAKE_SOURCE_DIR}/asio/asio/include")
 include_directories("${CMAKE_SOURCE_DIR}/rapidjson/include/rapidjson")
 include_directories("${CMAKE_SOURCE_DIR}/gflags/include")
 include_directories("${CMAKE_SOURCE_DIR}/snappy")
+include_directories("${CMAKE_SOURCE_DIR}/kcp")
 
 add_subdirectory("glog")
 add_subdirectory("gflags")
 add_subdirectory("snappy")
+add_subdirectory("kcp")
 
 set(SOURCE_FILES
-        ikcp.c
-        ikcp.h
         sess.cpp
         sess.h
         utils.h
@@ -63,6 +63,8 @@ add_executable(kcptun_client ${KCPTUN_CLIENT_SOURCE_FILES})
 target_link_libraries(kcptun_client gflags)
 target_link_libraries(kcptun_client glog)
 target_link_libraries(kcptun_client snappy)
+target_link_libraries(kcptun_client kcp)
+target_link_libraries(kcptun_client z)
 if(UNIX)
         target_link_libraries(kcptun_client "${CMAKE_SOURCE_DIR}/cryptopp/libcryptopp.a")
         target_link_libraries(kcptun_client -static-libstdc++)
@@ -75,6 +77,8 @@ add_executable(kcptun_server ${KCPTUN_SERVER_SOURCE_FILES})
 target_link_libraries(kcptun_server gflags)
 target_link_libraries(kcptun_server glog)
 target_link_libraries(kcptun_server snappy)
+target_link_libraries(kcptun_server kcp)
+target_link_libraries(kcptun_server z)
 if(UNIX)
         target_link_libraries(kcptun_server "${CMAKE_SOURCE_DIR}/cryptopp/libcryptopp.a")
         target_link_libraries(kcptun_server -static-libstdc++)

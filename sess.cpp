@@ -65,9 +65,7 @@ void Session::input(char *buffer, std::size_t len) {
     TRACE
     if (rtask_.check()) {
         update();
-    } else {
-        run_timer(std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(FLAGS_interval));
-    }
+    } 
     return;
 }
 
@@ -96,12 +94,14 @@ void Session::async_read_some(char *buffer, std::size_t len, Handler handler) {
         return;
     }
     auto n = ikcp_recv(kcp_, buffer, int(len));
+    // LOG(INFO) << "ikcp_recv return " << n;
     if (handler) {
         handler(std::error_code(0, std::generic_category()),
                 static_cast<std::size_t>(n));
     }
     if (psz > len) {
         n = ikcp_recv(kcp_, stream_buf_, sizeof(stream_buf_));
+        // LOG(INFO) << "ikcp_recv2 return " << n;
         streambufsiz_ = n;
     }
     return;
@@ -115,6 +115,7 @@ void Session::async_write(char *buffer, std::size_t len, Handler handler) {
             handler(std::error_code(0, std::generic_category()),
                     static_cast<std::size_t>(n));
         }
+        // ikcp_flush(kcp_);
     } else {
         wtasks_.push_back(Task{buffer, len, handler});
     }
@@ -141,12 +142,20 @@ void Session::updateRead() {
     if (psz <= 0) {
         return;
     }
-    auto n = ikcp_recv(kcp_, rtask_.buf, int(rtask_.len));
+    auto len = rtask_.len;
+    auto n = ikcp_recv(kcp_, rtask_.buf, int(len));
+    // LOG(INFO) << "ikcp_recv return " << n;
     auto rtask_handler = rtask_.handler;
     rtask_.reset();
     if (rtask_handler) {
         rtask_handler(std::error_code(0, std::generic_category()),
                       static_cast<std::size_t>(n));
+    }
+    // LOG(INFO) << "psz = " << psz << " pick again is " << ikcp_peeksize(kcp_);
+    if (psz > len) {
+        n = ikcp_recv(kcp_, stream_buf_, sizeof(stream_buf_));
+        // LOG(INFO) << "ikcp_recv2 return " << n;
+        streambufsiz_ = n;
     }
 }
 
@@ -167,10 +176,7 @@ void Session::updateTimer() {
     auto current = iclock();
     auto next = ikcp_check(kcp_, current);
     next -= current;
-    if(next <= 0) {
-        next = 1;
-    }
-    // info("next = %u\n", next);
+    // LOG(INFO) << "next = " << next;
     run_timer(std::chrono::high_resolution_clock::now()+std::chrono::milliseconds(next));
 }
 

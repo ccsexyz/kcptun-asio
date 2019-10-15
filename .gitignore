@@ -39,3 +39,4 @@ cmake_install.cmake
 kcptun
 kcptun_client
 kcptun_server
+tags

@@ -1,7 +1,3 @@
-//
-// Created by ccsexyz on 17-5-5.
-//
-
 #ifndef KCPTUN_SNAPPY_STREAM_H
 #define KCPTUN_SNAPPY_STREAM_H
 

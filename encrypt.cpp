@@ -32,6 +32,7 @@ using CryptoPP::CAST;
 using CryptoPP::Salsa20;
 using CryptoPP::CFB_Mode;
 using CryptoPP::CRC32;
+using CryptoPP::CRC32C;
 using CryptoPP::Twofish;
 using CryptoPP::DES_EDE3;
 using CryptoPP::XTEA;
@@ -199,4 +200,14 @@ std::unique_ptr<BaseDecEncrypter> getDecEncrypter(const std::string &method,
     } else {
         return std::move(my_make_unique<DecEncrypter<AES, 32, 16>>(pwd));
     }
+}
+
+uint32_t
+crc32c_cast(const unsigned char *buf, size_t len)
+{
+    CRC32C crc;
+    uint32_t ret;
+    crc.Update(buf, len);
+    crc.Final((CryptoPP::byte *)&ret);
+    return ret;
 }
